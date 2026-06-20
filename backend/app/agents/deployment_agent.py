@@ -4,9 +4,16 @@ Produces:
 - Dockerfile
 - docker-compose.yml
 - README with deployment instructions
+
+M4-I2: Validates generated docker-compose syntax via `docker compose config`
+(dry-run, no actual build, no docker daemon required).
 """
 
-from typing import List
+import asyncio
+import shutil
+import tempfile
+from pathlib import Path
+from typing import List, Optional
 
 from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
@@ -32,13 +39,18 @@ class DeploymentAgent(Agent):
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
-        """Generate deployment files."""
+        """Generate deployment files + verify docker-compose syntax (M4-I2)."""
         logger.info("deployment_agent_execute", session_id=ctx.session_id)
 
         dockerfile = self._generate_dockerfile()
         compose = self._generate_docker_compose()
         readme = self._generate_readme()
         frontend_docker = self._generate_frontend_dockerfile()
+
+        # M4-I2: Verify docker-compose syntax via `docker compose config` (dry-run)
+        build_verified, verify_msg = await self._verify_compose_syntax(
+            compose=compose, dockerfile=dockerfile, frontend_docker=frontend_docker
+        )
 
         parts = []
         for name, code in [
@@ -59,6 +71,8 @@ class DeploymentAgent(Agent):
             metadata={
                 "files_generated": 4,
                 "deploy_method": "docker-compose",
+                "build_verified": build_verified,
+                "build_verify_msg": verify_msg,
                 "files": [
                     {"path": "backend/Dockerfile", "content": dockerfile},
                     {"path": "frontend/Dockerfile", "content": frontend_docker},
@@ -68,8 +82,63 @@ class DeploymentAgent(Agent):
             },
         )
 
-        logger.info("deployment_agent_done", session_id=ctx.session_id)
+        logger.info(
+            "deployment_agent_done",
+            session_id=ctx.session_id,
+            build_verified=build_verified,
+        )
         return artifact
+
+    async def _verify_compose_syntax(
+        self,
+        compose: str,
+        dockerfile: str,
+        frontend_docker: str,
+    ) -> tuple[Optional[bool], str]:
+        """Verify docker-compose syntax without actually building.
+
+        Strategy:
+        1. If `docker compose` CLI not available → return (None, "docker CLI not available")
+        2. Write files to temp dir
+        3. Run `docker compose -f docker-compose.yml config` (dry-run parse)
+        4. If exit code 0 → (True, "syntax valid")
+        5. Otherwise → (False, stderr output)
+        """
+        docker = shutil.which("docker")
+        if not docker:
+            return None, "docker CLI not available (skipping build verification)"
+
+        with tempfile.TemporaryDirectory(prefix="sakura-deploy-") as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "docker-compose.yml").write_text(compose, encoding="utf-8")
+            (tmp_path / "backend").mkdir()
+            (tmp_path / "backend" / "Dockerfile").write_text(dockerfile, encoding="utf-8")
+            (tmp_path / "frontend").mkdir()
+            (tmp_path / "frontend" / "Dockerfile").write_text(frontend_docker, encoding="utf-8")
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    docker,
+                    "compose",
+                    "-f",
+                    "docker-compose.yml",
+                    "config",
+                    "--quiet",
+                    cwd=str(tmp_path),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=20
+                )
+                if proc.returncode == 0:
+                    return True, "docker-compose syntax valid"
+                err = (stderr or stdout).decode("utf-8", errors="replace")[:500]
+                return False, f"docker compose config failed: {err.strip()}"
+            except asyncio.TimeoutError:
+                return False, "docker compose config timeout (>20s)"
+            except Exception as e:
+                return False, f"verify error: {e}"
 
     def _generate_dockerfile(self) -> str:
         """Generate backend Dockerfile."""
