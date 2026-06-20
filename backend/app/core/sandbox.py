@@ -4,13 +4,11 @@ This module provides a Docker-based sandbox for executing agent tools
 in an isolated environment. Inspired by OpenHands Runtime.
 """
 
-import asyncio
-import os
 import tarfile
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import docker
 from docker.models.containers import Container
@@ -61,9 +59,9 @@ class DockerSandbox:
         self.cpu_limit = cpu_limit
         self.network_disabled = network_disabled
 
-        self.client: Optional[docker.DockerClient] = None
-        self.container: Optional[Container] = None
-        self.workspace: Optional[Path] = None
+        self.client: docker.DockerClient | None = None
+        self.container: Container | None = None
+        self.workspace: Path | None = None
 
     async def __aenter__(self) -> "DockerSandbox":
         """Create and start the sandbox container."""
@@ -96,9 +94,7 @@ class DockerSandbox:
                 image=self.image,
                 detach=True,
                 working_dir="/workspace",
-                volumes={
-                    str(self.workspace): {"bind": "/workspace", "mode": "rw"}
-                },
+                volumes={str(self.workspace): {"bind": "/workspace", "mode": "rw"}},
                 mem_limit=self.memory_limit,
                 cpu_period=100000,
                 cpu_quota=int(100000 * self.cpu_limit),
@@ -119,7 +115,7 @@ class DockerSandbox:
 
         except docker.errors.DockerException as e:
             logger.error("sandbox_start_failed", error=str(e))
-            raise SandboxError(f"Failed to start sandbox: {e}")
+            raise SandboxError(f"Failed to start sandbox: {e}") from e
 
     async def stop(self) -> None:
         """Stop and remove the sandbox container."""
@@ -136,16 +132,17 @@ class DockerSandbox:
         # Clean up workspace
         if self.workspace and self.workspace.exists():
             import shutil
+
             shutil.rmtree(self.workspace, ignore_errors=True)
             self.workspace = None
 
     async def execute(
         self,
         command: str,
-        timeout: Optional[int] = None,
-        workdir: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        timeout: int | None = None,
+        workdir: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Execute a command in the sandbox.
 
         Args:
@@ -197,7 +194,7 @@ class DockerSandbox:
 
         except docker.errors.DockerException as e:
             logger.error("sandbox_execute_failed", error=str(e))
-            raise SandboxError(f"Failed to execute command: {e}")
+            raise SandboxError(f"Failed to execute command: {e}") from e
 
     async def write_file(self, path: str, content: str) -> None:
         """Write a file to the sandbox.
@@ -258,7 +255,7 @@ class DockerSandbox:
 
         except docker.errors.DockerException as e:
             logger.error("sandbox_read_file_failed", error=str(e))
-            raise SandboxError(f"Failed to read file: {e}")
+            raise SandboxError(f"Failed to read file: {e}") from e
 
 
 async def create_sandbox(**kwargs) -> DockerSandbox:

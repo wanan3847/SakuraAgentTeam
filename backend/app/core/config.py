@@ -1,7 +1,6 @@
 """Core configuration for SakuraAgentTeam backend."""
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,13 +18,13 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # LLM Providers
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
     default_llm_provider: str = "openai"
     default_llm_model: str = "gpt-4o"
 
     # Local model support
-    local_model_base_url: Optional[str] = None
+    local_model_base_url: str | None = None
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/sakura.db"

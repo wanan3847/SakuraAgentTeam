@@ -1,5 +1,13 @@
 """Orchestration module - session management, workflow engine, event bus."""
 
+from app.orchestration.dynamic import (
+    ProjectAnalyzer,
+    ProjectState,
+    WorkflowSelector,
+    project_analyzer,
+    workflow_selector,
+)
+from app.orchestration.engine import WorkflowEngine, create_default_engine
 from app.orchestration.eventbus import Event, EventBus, EventType, event_bus
 from app.orchestration.session import (
     Session,
@@ -8,23 +16,15 @@ from app.orchestration.session import (
     session_manager,
 )
 from app.orchestration.workflows import (
-    FULL_GREENFIELD,
     BROWNFIELD,
+    FULL_GREENFIELD,
     INCREMENTAL,
     WORKFLOWS,
     Workflow,
     WorkflowStep,
-    get_workflow,
     get_default_workflow,
+    get_workflow,
     list_workflow_names,
-)
-from app.orchestration.engine import WorkflowEngine, create_default_engine
-from app.orchestration.dynamic import (
-    ProjectAnalyzer,
-    ProjectState,
-    WorkflowSelector,
-    project_analyzer,
-    workflow_selector,
 )
 
 __all__ = [

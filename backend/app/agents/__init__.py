@@ -1,15 +1,14 @@
 """Agents module - exports all agent classes and registry."""
 
+from app.agents.backend_agent import BackendAgent
 from app.agents.base import Agent, ReviewResult
-from app.agents.types import AgentRole, AgentStatus, Artifact, Context, Plan, PlanStep
-
-from app.agents.requirements_agent import RequirementsAgent
+from app.agents.deployment_agent import DeploymentAgent
 from app.agents.design_agent import DesignAgent
 from app.agents.frontend_agent import FrontendAgent
-from app.agents.backend_agent import BackendAgent
-from app.agents.testing_agent import TestingAgent
+from app.agents.requirements_agent import RequirementsAgent
 from app.agents.review_agent import ReviewAgent
-from app.agents.deployment_agent import DeploymentAgent
+from app.agents.testing_agent import TestingAgent
+from app.agents.types import AgentRole, AgentStatus, Artifact, Context, Plan, PlanStep
 
 # Registry: role -> Agent class
 AGENT_REGISTRY = {

@@ -6,11 +6,9 @@ This is the first Agent in the default workflow. It produces:
 - Technical stack hints
 """
 
-from typing import List
-
-from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
 from app.agents.types import AgentRole, Artifact, Context, Plan
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -24,7 +22,7 @@ class RequirementsAgent(Agent):
     def _default_plan_summary(self, ctx: Context) -> str:
         return "Analyze user requirement, extract key features, and write a PRD document"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         return [
             PlanStep(
                 description="Analyze user requirement and extract key features",
@@ -106,75 +104,89 @@ class RequirementsAgent(Agent):
             lines.append(feature["description"])
             lines.append("")
 
-        lines.extend([
-            "## 4. 非功能性需求",
-            "",
-            "- **性能**: 页面加载 < 2秒，API 响应 < 500ms",
-            "- **可用性**: 支持桌面和移动设备",
-            "- **安全性**: 前端输入验证，后端 API 防护",
-            "- **可维护性**: 代码结构清晰，注释完整",
-            "",
-            "## 5. 技术栈",
-            "",
-            "- **前端**: React 18 + TypeScript + Tailwind CSS",
-            "- **后端**: FastAPI (Python)",
-            "- **数据**: SQLite (MVP) / PostgreSQL (生产)",
-            "- **部署**: Docker + 本地脚本",
-            "",
-            "## 6. 里程碑",
-            "",
-            "1. 需求分析与设计",
-            "2. 前端开发",
-            "3. 后端开发",
-            "4. 测试与质量检查",
-            "5. 部署与验证",
-            "",
-        ])
+        lines.extend(
+            [
+                "## 4. 非功能性需求",
+                "",
+                "- **性能**: 页面加载 < 2秒，API 响应 < 500ms",
+                "- **可用性**: 支持桌面和移动设备",
+                "- **安全性**: 前端输入验证，后端 API 防护",
+                "- **可维护性**: 代码结构清晰，注释完整",
+                "",
+                "## 5. 技术栈",
+                "",
+                "- **前端**: React 18 + TypeScript + Tailwind CSS",
+                "- **后端**: FastAPI (Python)",
+                "- **数据**: SQLite (MVP) / PostgreSQL (生产)",
+                "- **部署**: Docker + 本地脚本",
+                "",
+                "## 6. 里程碑",
+                "",
+                "1. 需求分析与设计",
+                "2. 前端开发",
+                "3. 后端开发",
+                "4. 测试与质量检查",
+                "5. 部署与验证",
+                "",
+            ]
+        )
 
         return "\n".join(lines)
 
-    def _extract_features(self, requirement: str) -> List[dict]:
+    def _extract_features(self, requirement: str) -> list[dict]:
         """Extract feature list from requirement (keyword-based for MVP)."""
         features = []
         text = requirement.lower()
 
         # Common feature patterns
         if any(k in text for k in ["todo", "待办", "任务", "task"]):
-            features.append({
-                "title": "任务管理",
-                "description": "用户可以创建、编辑、删除和完成任务。支持任务列表展示和状态过滤。",
-            })
+            features.append(
+                {
+                    "title": "任务管理",
+                    "description": "用户可以创建、编辑、删除和完成任务。支持任务列表展示和状态过滤。",
+                }
+            )
 
         if any(k in text for k in ["用户", "登录", "认证", "user", "login", "auth"]):
-            features.append({
-                "title": "用户认证",
-                "description": "支持用户注册、登录和会话管理。使用 Token 进行身份验证。",
-            })
+            features.append(
+                {
+                    "title": "用户认证",
+                    "description": "支持用户注册、登录和会话管理。使用 Token 进行身份验证。",
+                }
+            )
 
         if any(k in text for k in ["博客", "文章", "post", "blog", "article"]):
-            features.append({
-                "title": "文章发布",
-                "description": "支持创建、编辑和展示文章内容。支持基本的 Markdown/富文本格式。",
-            })
+            features.append(
+                {
+                    "title": "文章发布",
+                    "description": "支持创建、编辑和展示文章内容。支持基本的 Markdown/富文本格式。",
+                }
+            )
 
         if any(k in text for k in ["评论", "comment", "discussion"]):
-            features.append({
-                "title": "评论系统",
-                "description": "用户可以对内容发表评论、回复，支持评论列表和删除。",
-            })
+            features.append(
+                {
+                    "title": "评论系统",
+                    "description": "用户可以对内容发表评论、回复，支持评论列表和删除。",
+                }
+            )
 
         if any(k in text for k in ["标签", "分类", "tag", "category"]):
-            features.append({
-                "title": "标签/分类",
-                "description": "支持为内容添加标签或分类，支持按标签/分类过滤内容。",
-            })
+            features.append(
+                {
+                    "title": "标签/分类",
+                    "description": "支持为内容添加标签或分类，支持按标签/分类过滤内容。",
+                }
+            )
 
         # Always add a basic feature
         if not features:
-            features.append({
-                "title": "核心功能",
-                "description": "根据用户需求实现核心业务功能。包含数据的增删改查操作。",
-            })
+            features.append(
+                {
+                    "title": "核心功能",
+                    "description": "根据用户需求实现核心业务功能。包含数据的增删改查操作。",
+                }
+            )
 
         return features
 

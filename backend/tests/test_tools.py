@@ -1,14 +1,11 @@
 """Tests for tools."""
 
-import pytest
-
 from app.foundation.tools import (
     FileReadInput,
     FileReadTool,
     FileWriteInput,
     FileWriteTool,
     ShellRunInput,
-    ShellRunTool,
     tool_registry,
 )
 

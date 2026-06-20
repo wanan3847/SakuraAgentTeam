@@ -7,11 +7,9 @@ Produces:
 - Pydantic schemas
 """
 
-from typing import List
-
-from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
 from app.agents.types import AgentRole, Artifact, Context, Plan
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -25,7 +23,7 @@ class BackendAgent(Agent):
     def _default_plan_summary(self, ctx: Context) -> str:
         return "Generate FastAPI backend with CRUD endpoints and SQLite database"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         return [
             PlanStep(description="Create FastAPI main entry point", tool="file_write"),
             PlanStep(description="Create SQLAlchemy models", tool="file_write"),
@@ -80,7 +78,7 @@ class BackendAgent(Agent):
         logger.info("backend_agent_done", session_id=ctx.session_id)
         return artifact
 
-    def _extract_features(self, ctx: Context) -> List[dict]:
+    def _extract_features(self, ctx: Context) -> list[dict]:
         """Extract features from context."""
         design_output = ctx.get_output(AgentRole.DESIGN.value)
         if design_output and hasattr(design_output, "metadata"):
@@ -103,9 +101,12 @@ SQLAlchemy>=2.0.0
 aiosqlite>=0.19.0
 """
 
-    def _generate_main(self, features: List[dict]) -> str:
+    def _generate_main(self, features: list[dict]) -> str:
         """Generate main.py."""
-        imports = ["from fastapi import FastAPI", "from fastapi.middleware.cors import CORSMiddleware"]
+        imports = [
+            "from fastapi import FastAPI",
+            "from fastapi.middleware.cors import CORSMiddleware",
+        ]
         route_imports = []
         route_includes = []
 
@@ -117,7 +118,7 @@ aiosqlite>=0.19.0
         imports_str = "\n".join(imports + route_imports)
         includes_str = "\n".join(route_includes)
 
-        return f'''{imports_str}
+        return f"""{imports_str}
 
 app = FastAPI(title="Sakura Generated API", version="1.0.0")
 
@@ -142,18 +143,18 @@ def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-'''
+"""
 
-    def _generate_models(self, features: List[dict]) -> str:
+    def _generate_models(self, features: list[dict]) -> str:
         """Generate SQLAlchemy models."""
         parts = [
             "from sqlalchemy import Column, Integer, String, Text, DateTime, create_engine",
             "from sqlalchemy.orm import sessionmaker, declarative_base",
             "from datetime import datetime",
             "",
-            "SQLALCHEMY_DATABASE_URL = \"sqlite:///./sakura.db\"",
+            'SQLALCHEMY_DATABASE_URL = "sqlite:///./sakura.db"',
             "",
-            "engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={\"check_same_thread\": False})",
+            'engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})',
             "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)",
             "Base = declarative_base()",
             "",
@@ -178,7 +179,7 @@ if __name__ == "__main__":
 
         return "\n".join(parts)
 
-    def _generate_schemas(self, features: List[dict]) -> str:
+    def _generate_schemas(self, features: list[dict]) -> str:
         """Generate Pydantic schemas."""
         parts = [
             "from pydantic import BaseModel",
@@ -190,7 +191,7 @@ if __name__ == "__main__":
         for feature in features:
             name = feature["title"].replace(" ", "")
 
-            parts.append(f'''class {name}Base(BaseModel):
+            parts.append(f"""class {name}Base(BaseModel):
     title: str
     description: Optional[str] = None
     status: str = "active"
@@ -220,11 +221,11 @@ class {name}ListResponse(BaseModel):
     success: bool = True
     data: list[{name}] = []
     error: Optional[dict] = None
-''')
+""")
 
         return "\n".join(parts)
 
-    def _generate_routes(self, features: List[dict]) -> str:
+    def _generate_routes(self, features: list[dict]) -> str:
         """Generate API routes."""
         parts = [
             "from fastapi import APIRouter, Depends, HTTPException",
@@ -236,57 +237,73 @@ class {name}ListResponse(BaseModel):
         model_names = [f["title"].replace(" ", "") for f in features]
         parts[-1] += ", ".join(model_names)
 
-        parts.extend([
-            "from schemas import (",
-        ])
+        parts.extend(
+            [
+                "from schemas import (",
+            ]
+        )
         for name in model_names:
-            parts.append(f"    {name}Create, {name}Update, {name}Response, {name}ListResponse, {name},")
+            parts.append(
+                f"    {name}Create, {name}Update, {name}Response, {name}ListResponse, {name},"
+            )
         parts.append(")")
 
-        parts.extend([
-            "",
-            "# Dependency",
-            "def get_db():",
-            "    db = SessionLocal()",
-            "    try:",
-            "        yield db",
-            "    finally:",
-            "        db.close()",
-            "",
-        ])
+        parts.extend(
+            [
+                "",
+                "# Dependency",
+                "def get_db():",
+                "    db = SessionLocal()",
+                "    try:",
+                "        yield db",
+                "    finally:",
+                "        db.close()",
+                "",
+            ]
+        )
 
         for feature in features:
             name = feature["title"].replace(" ", "")
             resource = feature["title"].lower().replace(" ", "_")
             router_name = resource + "_router"
 
-            parts.append(f'{router_name} = APIRouter(prefix="/api/v1/{resource}", tags=["{feature["title"]}"])')
+            parts.append(
+                f'{router_name} = APIRouter(prefix="/api/v1/{resource}", tags=["{feature["title"]}"])'
+            )
             parts.append("")
-            parts.append(f"@{router_name}.get(\"/\", response_model={name}ListResponse)")
+            parts.append(f'@{router_name}.get("/", response_model={name}ListResponse)')
             parts.append(f"def list_{resource}(db: Session = Depends(get_db)):")
             parts.append(f"    items = db.query({name}).all()")
             parts.append(f"    return {name}ListResponse(data=items)")
             parts.append("")
-            parts.append(f"@{router_name}.post(\"/\", response_model={name}Response)")
-            parts.append(f"def create_{resource}(item: {name}Create, db: Session = Depends(get_db)):")
+            parts.append(f'@{router_name}.post("/", response_model={name}Response)')
+            parts.append(
+                f"def create_{resource}(item: {name}Create, db: Session = Depends(get_db)):"
+            )
             parts.append(f"    db_item = {name}(**item.model_dump())")
             parts.append("    db.add(db_item)")
             parts.append("    db.commit()")
             parts.append("    db.refresh(db_item)")
             parts.append(f"    return {name}Response(data=db_item)")
             parts.append("")
-            parts.append(f"@{router_name}.get(\"/{{item_id}}\", response_model={name}Response)")
+            parts.append(f'@{router_name}.get("/{{item_id}}", response_model={name}Response)')
             parts.append(f"def get_{resource}(item_id: int, db: Session = Depends(get_db)):")
             parts.append(f"    item = db.query({name}).filter({name}.id == item_id).first()")
             parts.append("    if not item:")
-            parts.append(f'        raise HTTPException(status_code=404, detail="{feature["title"]} not found")')
+            parts.append(
+                f'        raise HTTPException(status_code=404, detail="{feature["title"]} not found")'
+            )
             parts.append(f"    return {name}Response(data=item)")
             parts.append("")
-            parts.append(f"@{router_name}.put(\"/{{item_id}}\", response_model={name}Response)")
-            parts.append(f"def update_{resource}(item_id: int, update: {name}Update, db: Session = Depends(get_db)):")
+            parts.append(f'@{router_name}.put("/{{item_id}}", response_model={name}Response)')
+            parts.append(
+                f"def update_{resource}(item_id: int, update: {name}Update, db: Session = Depends(get_db)):"
+            )
             parts.append(f"    item = db.query({name}).filter({name}.id == item_id).first()")
             parts.append("    if not item:")
-            parts.append(f'        raise HTTPException(status_code=404, detail="{feature["title"]} not found")')
+            parts.append(
+                f'        raise HTTPException(status_code=404, detail="{feature["title"]} not found")'
+            )
             parts.append("    for key, value in update.model_dump(exclude_unset=True).items():")
             parts.append("        setattr(item, key, value)")
             parts.append("    item.updated_at = datetime.utcnow()")
@@ -294,11 +311,13 @@ class {name}ListResponse(BaseModel):
             parts.append("    db.refresh(item)")
             parts.append(f"    return {name}Response(data=item)")
             parts.append("")
-            parts.append(f"@{router_name}.delete(\"/{{item_id}}\", response_model={name}Response)")
+            parts.append(f'@{router_name}.delete("/{{item_id}}", response_model={name}Response)')
             parts.append(f"def delete_{resource}(item_id: int, db: Session = Depends(get_db)):")
             parts.append(f"    item = db.query({name}).filter({name}.id == item_id).first()")
             parts.append("    if not item:")
-            parts.append(f'        raise HTTPException(status_code=404, detail="{feature["title"]} not found")')
+            parts.append(
+                f'        raise HTTPException(status_code=404, detail="{feature["title"]} not found")'
+            )
             parts.append("    db.delete(item)")
             parts.append("    db.commit()")
             parts.append(f"    return {name}Response(data={{ 'id': item_id, 'deleted': True }})")

@@ -9,12 +9,11 @@ Handles:
 """
 
 import asyncio
-from typing import Dict, List, Optional, Set
 
-from app.core.logging import get_logger
+from app.agents import create_all_agents
 from app.agents.base import Agent
 from app.agents.types import AgentRole, AgentStatus, Context
-from app.agents import create_all_agents
+from app.core.logging import get_logger
 from app.orchestration.eventbus import Event, EventType, event_bus
 from app.orchestration.session import SessionManager, SessionStatus, session_manager
 from app.orchestration.workflows import Workflow, WorkflowStep, get_default_workflow
@@ -32,8 +31,8 @@ class WorkflowEngine:
 
     def __init__(
         self,
-        agent_registry: Optional[Dict[AgentRole, Agent]] = None,
-        session_manager_instance: Optional[SessionManager] = None,
+        agent_registry: dict[AgentRole, Agent] | None = None,
+        session_manager_instance: SessionManager | None = None,
         event_bus_instance=None,
     ):
         """Initialize the workflow engine.
@@ -43,10 +42,10 @@ class WorkflowEngine:
             session_manager_instance: Session manager for persistence
             event_bus_instance: Event bus for progress events
         """
-        self._agents: Dict[AgentRole, Agent] = agent_registry or {}
+        self._agents: dict[AgentRole, Agent] = agent_registry or {}
         self._session_mgr = session_manager_instance or session_manager
         self._event_bus = event_bus_instance or event_bus
-        self._active_sessions: Set[str] = set()
+        self._active_sessions: set[str] = set()
 
     def register_agent(self, role: AgentRole, agent: Agent) -> None:
         """Register an agent for a role."""
@@ -60,9 +59,9 @@ class WorkflowEngine:
         self,
         session_id: str,
         requirement: str,
-        workflow: Optional[Workflow] = None,
-        projects_root: Optional[str] = None,
-        project_id: Optional[str] = None,
+        workflow: Workflow | None = None,
+        projects_root: str | None = None,
+        project_id: str | None = None,
     ) -> bool:
         """Run a full workflow.
 
@@ -118,8 +117,8 @@ class WorkflowEngine:
         )
 
         # Track completed steps (so we can check dependencies)
-        completed: Set[AgentRole] = set()
-        failed: Set[AgentRole] = set()
+        completed: set[AgentRole] = set()
+        failed: set[AgentRole] = set()
 
         try:
             # Main scheduling loop - keep running until all steps are processed
@@ -127,8 +126,8 @@ class WorkflowEngine:
 
             while remaining_steps:
                 # Find all steps that have their dependencies satisfied
-                ready_steps: List[WorkflowStep] = []
-                still_waiting: List[WorkflowStep] = []
+                ready_steps: list[WorkflowStep] = []
+                still_waiting: list[WorkflowStep] = []
 
                 for step in remaining_steps:
                     deps_satisfied = all(dep in completed for dep in step.depends_on)
@@ -187,13 +186,10 @@ class WorkflowEngine:
                         failed.add(role)
                 else:
                     # Parallel execution (e.g., frontend + backend)
-                    tasks = [
-                        self._execute_agent(role, ctx, session_id)
-                        for role in parallel_roles
-                    ]
+                    tasks = [self._execute_agent(role, ctx, session_id) for role in parallel_roles]
                     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    for role, result in zip(parallel_roles, results):
+                    for role, result in zip(parallel_roles, results, strict=False):
                         success = isinstance(result, bool) and result
                         if success:
                             completed.add(role)
@@ -253,9 +249,7 @@ class WorkflowEngine:
         finally:
             self._active_sessions.discard(session_id)
 
-    async def _execute_agent(
-        self, role: AgentRole, ctx: Context, session_id: str
-    ) -> bool:
+    async def _execute_agent(self, role: AgentRole, ctx: Context, session_id: str) -> bool:
         """Execute a single Agent step.
 
         Args:
@@ -280,9 +274,7 @@ class WorkflowEngine:
             )
             return True  # Not a hard failure - we continue the workflow
 
-        await self._session_mgr.update_agent_progress(
-            session_id, role.value, AgentStatus.RUNNING
-        )
+        await self._session_mgr.update_agent_progress(session_id, role.value, AgentStatus.RUNNING)
         await self._event_bus.publish(
             Event(
                 event_type=EventType.AGENT_STARTED.value,

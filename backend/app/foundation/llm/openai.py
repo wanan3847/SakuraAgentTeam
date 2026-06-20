@@ -1,8 +1,9 @@
 """OpenAI LLM Provider implementation."""
 
-from typing import Any, AsyncIterator, Iterator, List, Optional
+from collections.abc import AsyncIterator, Iterator
+from typing import Any
 
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from app.core.logging import get_logger
 from app.foundation.llm.base import (
@@ -23,8 +24,8 @@ class OpenAIProvider(LLMProvider):
     def __init__(
         self,
         model: str = "gpt-4o",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs: Any,
     ):
         """Initialize OpenAI provider.
@@ -40,7 +41,7 @@ class OpenAIProvider(LLMProvider):
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.async_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
-    def chat(self, messages: List[Message], **kwargs: Any) -> LLMResponse:
+    def chat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
         """Synchronous chat completion.
 
         Args:
@@ -77,7 +78,7 @@ class OpenAIProvider(LLMProvider):
             finish_reason=response.choices[0].finish_reason,
         )
 
-    async def achat(self, messages: List[Message], **kwargs: Any) -> LLMResponse:
+    async def achat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
         """Asynchronous chat completion.
 
         Args:
@@ -114,7 +115,7 @@ class OpenAIProvider(LLMProvider):
             finish_reason=response.choices[0].finish_reason,
         )
 
-    def stream(self, messages: List[Message], **kwargs: Any) -> Iterator[str]:
+    def stream(self, messages: list[Message], **kwargs: Any) -> Iterator[str]:
         """Streaming chat completion.
 
         Args:
@@ -137,7 +138,7 @@ class OpenAIProvider(LLMProvider):
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-    async def astream(self, messages: List[Message], **kwargs: Any) -> AsyncIterator[str]:
+    async def astream(self, messages: list[Message], **kwargs: Any) -> AsyncIterator[str]:
         """Asynchronous streaming chat completion.
 
         Args:

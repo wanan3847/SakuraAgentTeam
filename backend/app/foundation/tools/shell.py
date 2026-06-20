@@ -2,9 +2,9 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.logging import get_logger
 from app.foundation.tools.base import (
@@ -39,7 +39,7 @@ class FileWriteTool(Tool[FileWriteInput]):
     input_schema = FileWriteInput
     aliases = ["write", "echo"]
 
-    def __init__(self, allowed_root: Optional[str] = None):
+    def __init__(self, allowed_root: str | None = None):
         """Initialize the file write tool.
 
         Args:
@@ -74,7 +74,7 @@ class FileWriteTool(Tool[FileWriteInput]):
         return path
 
     def check_permissions(
-        self, input_data: FileWriteInput, context: Dict[str, Any]
+        self, input_data: FileWriteInput, context: dict[str, Any]
     ) -> PermissionResult:
         """Check if the file can be written.
 
@@ -95,7 +95,7 @@ class FileWriteTool(Tool[FileWriteInput]):
         """File write is not read-only."""
         return False
 
-    async def call(self, input_data: FileWriteInput, context: Dict[str, Any]) -> ToolResult:
+    async def call(self, input_data: FileWriteInput, context: dict[str, Any]) -> ToolResult:
         """Write content to file.
 
         Args:

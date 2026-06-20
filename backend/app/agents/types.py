@@ -4,11 +4,11 @@ Inspired by Claude Code's Task system and OpenHands's State management.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 
-class AgentRole(str, Enum):
+class AgentRole(StrEnum):
     """Agent roles in the workflow."""
 
     REQUIREMENTS = "requirements"
@@ -20,7 +20,7 @@ class AgentRole(str, Enum):
     DEPLOYMENT = "deployment"
 
 
-class AgentStatus(str, Enum):
+class AgentStatus(StrEnum):
     """Execution status of an Agent."""
 
     PENDING = "pending"
@@ -43,19 +43,19 @@ class Context:
     user_requirement: str
 
     # Agent outputs keyed by role
-    agent_outputs: Dict[str, Any] = field(default_factory=dict)
+    agent_outputs: dict[str, Any] = field(default_factory=dict)
 
     # Experience hints (used for error recovery)
-    experience_hints: List[Dict[str, str]] = field(default_factory=list)
+    experience_hints: list[dict[str, str]] = field(default_factory=list)
 
     # General metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def set_output(self, agent_role: str, output: Any) -> None:
         """Set output from an Agent."""
         self.agent_outputs[agent_role] = output
 
-    def get_output(self, agent_role: str) -> Optional[Any]:
+    def get_output(self, agent_role: str) -> Any | None:
         """Get output from a previous Agent."""
         return self.agent_outputs.get(agent_role)
 
@@ -63,7 +63,7 @@ class Context:
         """Add a hint/lesson for the current session."""
         self.experience_hints.append({"source": source, "content": hint})
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize context for logging/frontend."""
         return {
             "session_id": self.session_id,
@@ -80,7 +80,7 @@ class PlanStep:
 
     description: str
     tool: str  # Which tool to use
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
     expected_output: str = ""
 
 
@@ -90,15 +90,17 @@ class Plan:
 
     agent_role: str
     summary: str
-    steps: List[PlanStep] = field(default_factory=list)
+    steps: list[PlanStep] = field(default_factory=list)
 
-    def add_step(self, description: str, tool: str, parameters: Dict[str, Any] = None) -> None:
+    def add_step(self, description: str, tool: str, parameters: dict[str, Any] = None) -> None:
         """Add a step to the plan."""
-        self.steps.append(PlanStep(
-            description=description,
-            tool=tool,
-            parameters=parameters or {},
-        ))
+        self.steps.append(
+            PlanStep(
+                description=description,
+                tool=tool,
+                parameters=parameters or {},
+            )
+        )
 
 
 @dataclass
@@ -109,9 +111,9 @@ class Artifact:
     artifact_type: str  # e.g., "document", "code", "config"
     name: str
     content: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize artifact for frontend/storage."""
         return {
             "agent_role": self.agent_role,

@@ -7,11 +7,9 @@ Checks for:
 - Structural problems
 """
 
-from typing import List
-
-from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
 from app.agents.types import AgentRole, Artifact, Context, Plan
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -25,7 +23,7 @@ class ReviewAgent(Agent):
     def _default_plan_summary(self, ctx: Context) -> str:
         return "Review all generated code for quality, security, and completeness"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         return [
             PlanStep(description="Check frontend code for issues", tool="llm_chat"),
             PlanStep(description="Check backend code for issues", tool="llm_chat"),
@@ -67,7 +65,7 @@ class ReviewAgent(Agent):
         logger.info("review_agent_done", session_id=ctx.session_id)
         return artifact
 
-    def _generate_review(self, reviewed_items: List[tuple]) -> str:
+    def _generate_review(self, reviewed_items: list[tuple]) -> str:
         """Generate a markdown review report."""
         parts = [
             "# Code Review Report",
@@ -75,7 +73,7 @@ class ReviewAgent(Agent):
             "## Summary",
             "",
             f"- **Items reviewed**: {len(reviewed_items)}",
-            f"- **Overall status**: ✅ Approved",
+            "- **Overall status**: ✅ Approved",
             "",
             "## 1. Code Quality Checklist",
             "",

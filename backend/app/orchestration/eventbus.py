@@ -5,10 +5,11 @@ Used to drive real-time frontend updates via Server-Sent Events.
 """
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from app.core.logging import get_logger
@@ -16,7 +17,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Types of events that can be published."""
 
     # Session lifecycle
@@ -44,11 +45,11 @@ class Event:
 
     event_type: str
     session_id: str
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     event_id: str = field(default_factory=lambda: uuid4().hex[:12])
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize for transmission."""
         return {
             "event_id": self.event_id,
@@ -78,11 +79,11 @@ class EventBus:
         Args:
             max_history: Max events to keep in history per session
         """
-        self._callbacks: Dict[str, List[EventCallback]] = {}
-        self._wildcard_callbacks: List[EventCallback] = []
-        self._session_history: Dict[str, List[Event]] = {}
+        self._callbacks: dict[str, list[EventCallback]] = {}
+        self._wildcard_callbacks: list[EventCallback] = []
+        self._session_history: dict[str, list[Event]] = {}
         self._max_history = max_history
-        self._queues: Dict[str, asyncio.Queue] = {}  # For SSE streaming
+        self._queues: dict[str, asyncio.Queue] = {}  # For SSE streaming
         self._lock = asyncio.Lock()
 
     def subscribe(self, event_type: str, callback: EventCallback) -> None:
@@ -104,7 +105,7 @@ class EventBus:
                 self._session_history[sid] = []
             self._session_history[sid].append(event)
             if len(self._session_history[sid]) > self._max_history:
-                self._session_history[sid] = self._session_history[sid][-self._max_history:]
+                self._session_history[sid] = self._session_history[sid][-self._max_history :]
 
             # Push to SSE queue if exists
             if sid in self._queues:
@@ -134,17 +135,19 @@ class EventBus:
         level: str = "info",
     ) -> None:
         """Shortcut to publish an AGENT_LOG event."""
-        await self.publish(Event(
-            event_type=EventType.AGENT_LOG.value,
-            session_id=session_id,
-            payload={
-                "agent_role": agent_role,
-                "message": message,
-                "level": level,
-            },
-        ))
+        await self.publish(
+            Event(
+                event_type=EventType.AGENT_LOG.value,
+                session_id=session_id,
+                payload={
+                    "agent_role": agent_role,
+                    "message": message,
+                    "level": level,
+                },
+            )
+        )
 
-    def get_history(self, session_id: str) -> List[Event]:
+    def get_history(self, session_id: str) -> list[Event]:
         """Get event history for a session."""
         return list(self._session_history.get(session_id, []))
 

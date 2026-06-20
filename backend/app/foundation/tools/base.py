@@ -6,13 +6,13 @@ Inspired by Claude Code's Tool.ts and OpenHands Tool abstraction.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from enum import StrEnum
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
 
-class PermissionResult(str, Enum):
+class PermissionResult(StrEnum):
     """Result of permission check."""
 
     ALLOW = "allow"
@@ -26,8 +26,8 @@ class ToolResult:
 
     success: bool
     output: str
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class ToolInput(BaseModel):
@@ -53,10 +53,10 @@ class Tool(ABC, Generic[InputType]):
     name: str
     description: str
     input_schema: type[ToolInput]
-    aliases: List[str] = field(default_factory=list)
+    aliases: list[str] = field(default_factory=list)
 
     @abstractmethod
-    async def call(self, input_data: InputType, context: Dict[str, Any]) -> ToolResult:
+    async def call(self, input_data: InputType, context: dict[str, Any]) -> ToolResult:
         """Execute the tool.
 
         Args:
@@ -68,9 +68,7 @@ class Tool(ABC, Generic[InputType]):
         """
         ...
 
-    def check_permissions(
-        self, input_data: InputType, context: Dict[str, Any]
-    ) -> PermissionResult:
+    def check_permissions(self, input_data: InputType, context: dict[str, Any]) -> PermissionResult:
         """Check if the tool can be executed.
 
         Override this method to implement permission checks.
@@ -106,7 +104,7 @@ class Tool(ABC, Generic[InputType]):
         """
         return False
 
-    def validate_input(self, input_dict: Dict[str, Any]) -> InputType:
+    def validate_input(self, input_dict: dict[str, Any]) -> InputType:
         """Validate and parse input.
 
         Args:
@@ -129,7 +127,7 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         """Initialize the tool registry."""
-        self._tools: Dict[str, Tool] = {}
+        self._tools: dict[str, Tool] = {}
 
     def register(self, tool: Tool) -> None:
         """Register a tool.
@@ -141,7 +139,7 @@ class ToolRegistry:
         for alias in tool.aliases:
             self._tools[alias] = tool
 
-    def get(self, name: str) -> Optional[Tool]:
+    def get(self, name: str) -> Tool | None:
         """Get a tool by name or alias.
 
         Args:
@@ -152,11 +150,11 @@ class ToolRegistry:
         """
         return self._tools.get(name)
 
-    def list_tools(self) -> List[str]:
+    def list_tools(self) -> list[str]:
         """List all registered tool names."""
         return list(self._tools.keys())
 
-    def get_all_tools(self) -> List[Tool]:
+    def get_all_tools(self) -> list[Tool]:
         """Get all registered tool instances."""
         return list(set(self._tools.values()))
 

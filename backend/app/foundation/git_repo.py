@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
-from typing import List, Optional
 
 from app.core.logging import get_logger
 
@@ -21,7 +20,6 @@ logger = get_logger(__name__)
 
 # Lazy import: GitPython may not be installed in dev environments
 try:
-    import git
     from git import Actor, Repo
 
     _GITPYTHON_AVAILABLE = True
@@ -43,7 +41,7 @@ class ProjectRepo:
 
     def __init__(self, path: str | os.PathLike):
         self.path = Path(path).resolve()
-        self._repo: Optional["Repo"] = None
+        self._repo: Repo | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -128,17 +126,17 @@ class ProjectRepo:
         )
 
     @property
-    def repo(self) -> Optional["Repo"]:
+    def repo(self) -> Repo | None:
         return self._repo
 
     # ------------------------------------------------------------------
     # Read operations
     # ------------------------------------------------------------------
-    def history(self, max_count: int = 50) -> List[dict]:
+    def history(self, max_count: int = 50) -> list[dict]:
         """Return list of recent commits, newest first."""
         if not self._repo:
             return []
-        commits: List[dict] = []
+        commits: list[dict] = []
         try:
             for c in self._repo.iter_commits(max_count=max_count):
                 commits.append(
@@ -173,10 +171,10 @@ class ProjectRepo:
     def commit(
         self,
         message: str,
-        paths: Optional[List[str]] = None,
+        paths: list[str] | None = None,
         author_name: str = "Sakura Agent",
         author_email: str = "agent@sakura.local",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Stage and commit changes. Returns commit SHA on success."""
         if not self._repo:
             logger.warning("git_commit_skipped_no_repo")
@@ -190,10 +188,7 @@ class ProjectRepo:
 
             # Skip if nothing to commit AND we have a HEAD (compare to HEAD)
             if self._repo.heads:
-                if (
-                    not self._repo.index.diff("HEAD")
-                    and not self._repo.untracked_files
-                ):
+                if not self._repo.index.diff("HEAD") and not self._repo.untracked_files:
                     logger.debug("git_commit_skipped_no_changes", message=message)
                     return None
 
@@ -224,10 +219,10 @@ class ProjectRepo:
     async def ainit(self, **kwargs) -> None:
         await asyncio.to_thread(self.init, **kwargs)
 
-    async def acommit(self, message: str, **kwargs) -> Optional[str]:
+    async def acommit(self, message: str, **kwargs) -> str | None:
         return await asyncio.to_thread(self.commit, message, **kwargs)
 
-    async def ahistory(self, max_count: int = 50) -> List[dict]:
+    async def ahistory(self, max_count: int = 50) -> list[dict]:
         return await asyncio.to_thread(self.history, max_count)
 
 

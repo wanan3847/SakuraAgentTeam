@@ -13,8 +13,7 @@ useful knowledge is graduated to persistent storage.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 from app.core.logging import get_logger
 
@@ -23,7 +22,7 @@ logger = get_logger(__name__)
 
 def _utcnow_iso() -> str:
     """Return current UTC time as ISO 8601 string with timezone info."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass
@@ -31,17 +30,17 @@ class Experience:
     """A single experience / error pattern."""
 
     id: str
-    error_type: str           # e.g., "ImportError", "ConnectionError"
-    error_message: str        # Full error message
-    context: Dict[str, str]   # Context: agent_role, task_type, project_type
-    attempted_fixes: List[str] = field(default_factory=list)
+    error_type: str  # e.g., "ImportError", "ConnectionError"
+    error_message: str  # Full error message
+    context: dict[str, str]  # Context: agent_role, task_type, project_type
+    attempted_fixes: list[str] = field(default_factory=list)
     final_solution: str = ""
     success: bool = True
     user_rating: int = 3
     occurrence_count: int = 1
     status: str = "active"
     created_at: str = field(default_factory=_utcnow_iso)
-    graduated_at: Optional[str] = None
+    graduated_at: str | None = None
 
 
 class ExperienceStore:
@@ -60,7 +59,7 @@ class ExperienceStore:
             persist_directory: Path to ChromaDB persistence directory
         """
         self.persist_directory = persist_directory
-        self._experiences: List[Experience] = []
+        self._experiences: list[Experience] = []
         self._client = None
         self._collection = None
 
@@ -70,7 +69,6 @@ class ExperienceStore:
         """Initialize ChromaDB or fall back to keyword search."""
         try:
             import chromadb
-            from chromadb.config import Settings
 
             self._client = chromadb.PersistentClient(path=self.persist_directory)
             self._collection = self._client.get_or_create_collection("sakura_experiences")
@@ -91,7 +89,7 @@ class ExperienceStore:
         data_path = Path(self.persist_directory) / "experiences.json"
         if data_path.exists():
             try:
-                with open(data_path, "r", encoding="utf-8") as f:
+                with open(data_path, encoding="utf-8") as f:
                     data = json.load(f)
                 for item in data:
                     self._experiences.append(Experience(**item))
@@ -120,7 +118,7 @@ class ExperienceStore:
         self,
         error_message: str,
         error_type: str,
-        context: Dict[str, str],
+        context: dict[str, str],
         final_solution: str,
         success: bool = True,
     ) -> str:
@@ -155,14 +153,18 @@ class ExperienceStore:
         # Add to ChromaDB for vector search
         if self._collection is not None:
             try:
-                doc = f"{error_type}: {error_message}\nContext: {context}\nSolution: {final_solution}"
+                doc = (
+                    f"{error_type}: {error_message}\nContext: {context}\nSolution: {final_solution}"
+                )
                 self._collection.add(
                     documents=[doc],
-                    metadatas=[{
-                        "error_type": error_type,
-                        "agent_role": context.get("agent_role", ""),
-                        "success": str(success),
-                    }],
+                    metadatas=[
+                        {
+                            "error_type": error_type,
+                            "agent_role": context.get("agent_role", ""),
+                            "success": str(success),
+                        }
+                    ],
                     ids=[exp_id],
                 )
             except Exception as e:
@@ -179,9 +181,9 @@ class ExperienceStore:
     def search_similar(
         self,
         error_message: str,
-        context: Optional[Dict[str, str]] = None,
+        context: dict[str, str] | None = None,
         top_k: int = 5,
-    ) -> List[Experience]:
+    ) -> list[Experience]:
         """Search for similar past experiences.
 
         Args:
@@ -220,14 +222,14 @@ class ExperienceStore:
     def _keyword_search(
         self,
         error_message: str,
-        context: Optional[Dict[str, str]],
+        context: dict[str, str] | None,
         top_k: int,
-    ) -> List[Experience]:
+    ) -> list[Experience]:
         """Simple keyword-based fallback search."""
         import re
 
         # Extract keywords from error message (words of 4+ chars)
-        keywords = set(re.findall(r'\b\w{4,}\b', error_message.lower()))
+        keywords = set(re.findall(r"\b\w{4,}\b", error_message.lower()))
         if not keywords:
             return self._experiences[:top_k]
 
@@ -295,11 +297,11 @@ class ExperienceStore:
         self._save_to_memory()
         return True
 
-    def get_graduated(self) -> List[Experience]:
+    def get_graduated(self) -> list[Experience]:
         """Get all graduated (persistent) experiences."""
         return [e for e in self._experiences if e.status == "graduated"]
 
-    def count(self) -> Dict[str, int]:
+    def count(self) -> dict[str, int]:
         """Get count statistics."""
         return {
             "total": len(self._experiences),

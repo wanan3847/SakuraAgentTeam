@@ -7,14 +7,13 @@ experience store, and workflow selection.
 
 import asyncio
 import json
-from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.logging import get_logger
 from app.agents import AGENT_REGISTRY, create_all_agents, list_available_roles
+from app.core.logging import get_logger
 from app.foundation.experience import experience_store
 from app.foundation.project import project_store
 from app.orchestration import (
@@ -50,6 +49,7 @@ def get_engine():
 
 
 # ---------- Session APIs ----------
+
 
 @router.get("/sessions")
 def list_sessions():
@@ -211,6 +211,7 @@ async def execute_session(session_id: str, request: Request, background_tasks: B
 
 # ---------- SSE Event Stream ----------
 
+
 @router.get("/sessions/{session_id}/stream")
 async def stream_session_events(session_id: str):
     """SSE stream of session events for real-time frontend updates."""
@@ -228,7 +229,9 @@ async def stream_session_events(session_id: str):
         # Send history
         history = event_bus.get_history(session_id)
         for evt in history:
-            event_type_str = evt.event_type if isinstance(evt.event_type, str) else evt.event_type.value
+            event_type_str = (
+                evt.event_type if isinstance(evt.event_type, str) else evt.event_type.value
+            )
             yield (
                 f"event: {event_type_str}\n"
                 f"data: {json.dumps({'timestamp': evt.timestamp, 'payload': evt.payload})}\n\n"
@@ -271,10 +274,14 @@ async def stream_session_events(session_id: str):
                         f"event: {event_type_str}\n"
                         f"data: {json.dumps({'timestamp': event.timestamp, 'payload': event.payload})}\n\n"
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Check session status
                     s = session_manager.get_session(session_id)
-                    if s and s.status in {SessionStatus.COMPLETED, SessionStatus.FAILED, SessionStatus.CANCELLED}:
+                    if s and s.status in {
+                        SessionStatus.COMPLETED,
+                        SessionStatus.FAILED,
+                        SessionStatus.CANCELLED,
+                    }:
                         yield (
                             f"event: session.ended\n"
                             f"data: {json.dumps({'status': s.status.value, 'error': s.error_message or ''})}\n\n"
@@ -282,24 +289,18 @@ async def stream_session_events(session_id: str):
                         break
                     # Heartbeat
                     current_status = s.status.value if s else "unknown"
-                    yield (
-                        f"event: ping\n"
-                        f"data: {json.dumps({'status': current_status})}\n\n"
-                    )
+                    yield (f"event: ping\ndata: {json.dumps({'status': current_status})}\n\n")
 
                 waited += poll_interval
 
-            yield "event: stream_end\ndata: {\"message\": \"Stream closed\"}\n\n"
+            yield 'event: stream_end\ndata: {"message": "Stream closed"}\n\n'
 
         except asyncio.CancelledError:
             logger.info("sse_stream_cancelled", session_id=session_id)
             raise
         except Exception as e:
             logger.exception("sse_stream_error", session_id=session_id, error=str(e))
-            yield (
-                f"event: error\n"
-                f"data: {json.dumps({'message': str(e)})}\n\n"
-            )
+            yield (f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n")
 
     return StreamingResponse(
         event_generator(),
@@ -315,8 +316,9 @@ async def stream_session_events(session_id: str):
 
 # ---------- Experience Store APIs ----------
 
+
 @router.get("/experiences")
-def list_experiences(error_message: Optional[str] = None, top_k: int = 5):
+def list_experiences(error_message: str | None = None, top_k: int = 5):
     """List experiences, optionally searching by error message similarity."""
     if error_message:
         exps = experience_store.search_similar(error_message, top_k=top_k)
@@ -375,6 +377,7 @@ def experience_stats():
 
 # ---------- Workflow Selection APIs ----------
 
+
 @router.get("/workflows")
 def list_workflows():
     """List all available workflow names."""
@@ -416,6 +419,7 @@ async def select_workflow(request: Request):
 
 
 # ---------- Project / Git APIs ----------
+
 
 @router.post("/projects")
 async def create_project(request: Request):
@@ -471,6 +475,7 @@ async def rollback_project(project_id: str, request: Request):
 
 # ---------- Info APIs ----------
 
+
 @router.get("/agents")
 def list_agents():
     """List all available agent roles."""
@@ -486,10 +491,11 @@ def list_projects():
 
 # ---------- Internal Helpers ----------
 
+
 async def _execute_workflow(
     session_id: str,
     requirement: str,
-    workflow_name: Optional[str],
+    workflow_name: str | None,
 ):
     """Execute workflow in background (for async non-blocking response)."""
     try:
@@ -515,17 +521,19 @@ async def _execute_workflow(
         )
 
         # Publish start event
-        await event_bus.publish(Event(
-            event_type=EventType.SESSION_STARTED.value,
-            session_id=session_id,
-            payload={
-                "workflow": workflow.name,
-                "steps": [
-                    s.agent_role.value if hasattr(s.agent_role, "value") else str(s.agent_role)
-                    for s in workflow.steps
-                ],
-            },
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.SESSION_STARTED.value,
+                session_id=session_id,
+                payload={
+                    "workflow": workflow.name,
+                    "steps": [
+                        s.agent_role.value if hasattr(s.agent_role, "value") else str(s.agent_role)
+                        for s in workflow.steps
+                    ],
+                },
+            )
+        )
 
         # Run the engine with project git repo config so agents can commit artifacts
         engine = get_engine()

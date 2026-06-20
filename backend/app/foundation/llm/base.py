@@ -5,12 +5,13 @@ supporting OpenAI, Anthropic, and local models.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, AsyncIterator, Iterator, List, Optional
+from enum import StrEnum
+from typing import Any
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     """Message role in conversation."""
 
     SYSTEM = "system"
@@ -36,8 +37,8 @@ class LLMResponse:
 
     content: str
     model: str
-    usage: Optional[dict] = None
-    finish_reason: Optional[str] = None
+    usage: dict | None = None
+    finish_reason: str | None = None
 
 
 class LLMProvider(ABC):
@@ -50,8 +51,8 @@ class LLMProvider(ABC):
     def __init__(
         self,
         model: str,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs: Any,
     ):
         """Initialize the LLM provider.
@@ -68,7 +69,7 @@ class LLMProvider(ABC):
         self.config = kwargs
 
     @abstractmethod
-    def chat(self, messages: List[Message], **kwargs: Any) -> LLMResponse:
+    def chat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
         """Synchronous chat completion.
 
         Args:
@@ -81,7 +82,7 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
-    async def achat(self, messages: List[Message], **kwargs: Any) -> LLMResponse:
+    async def achat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
         """Asynchronous chat completion.
 
         Args:
@@ -94,7 +95,7 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
-    def stream(self, messages: List[Message], **kwargs: Any) -> Iterator[str]:
+    def stream(self, messages: list[Message], **kwargs: Any) -> Iterator[str]:
         """Streaming chat completion.
 
         Args:
@@ -107,7 +108,7 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
-    async def astream(self, messages: List[Message], **kwargs: Any) -> AsyncIterator[str]:
+    async def astream(self, messages: list[Message], **kwargs: Any) -> AsyncIterator[str]:
         """Asynchronous streaming chat completion.
 
         Args:
@@ -119,7 +120,7 @@ class LLMProvider(ABC):
         """
         ...
 
-    def _prepare_messages(self, messages: List[Message]) -> List[dict]:
+    def _prepare_messages(self, messages: list[Message]) -> list[dict]:
         """Prepare messages for API call.
 
         Args:
@@ -155,8 +156,8 @@ class LLMProviderFactory:
         cls,
         provider: str,
         model: str,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs: Any,
     ) -> LLMProvider:
         """Create a provider instance.
@@ -176,8 +177,7 @@ class LLMProviderFactory:
         """
         if provider not in cls._providers:
             raise ValueError(
-                f"Unknown provider: {provider}. "
-                f"Available providers: {list(cls._providers.keys())}"
+                f"Unknown provider: {provider}. Available providers: {list(cls._providers.keys())}"
             )
 
         provider_class = cls._providers[provider]
@@ -189,6 +189,6 @@ class LLMProviderFactory:
         )
 
     @classmethod
-    def list_providers(cls) -> List[str]:
+    def list_providers(cls) -> list[str]:
         """List all registered providers."""
         return list(cls._providers.keys())

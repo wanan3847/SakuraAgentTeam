@@ -6,11 +6,9 @@ Reads PRD output from RequirementsAgent and generates:
 - Database schema suggestions
 """
 
-from typing import List
-
-from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
 from app.agents.types import AgentRole, Artifact, Context, Plan
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -24,12 +22,24 @@ class DesignAgent(Agent):
     def _default_plan_summary(self, ctx: Context) -> str:
         return "Analyze PRD, design architecture, API contract, and database schema"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         return [
             PlanStep(description="Analyze PRD and extract components", tool="llm_chat"),
-            PlanStep(description="Design system architecture", tool="file_write", parameters={"path": "architecture.md"}),
-            PlanStep(description="Define API contract (routes and schemas)", tool="file_write", parameters={"path": "api.md"}),
-            PlanStep(description="Design database schema", tool="file_write", parameters={"path": "database.md"}),
+            PlanStep(
+                description="Design system architecture",
+                tool="file_write",
+                parameters={"path": "architecture.md"},
+            ),
+            PlanStep(
+                description="Define API contract (routes and schemas)",
+                tool="file_write",
+                parameters={"path": "api.md"},
+            ),
+            PlanStep(
+                description="Design database schema",
+                tool="file_write",
+                parameters={"path": "database.md"},
+            ),
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
@@ -77,7 +87,7 @@ class DesignAgent(Agent):
         logger.info("design_agent_done", session_id=ctx.session_id)
         return artifact
 
-    def _generate_architecture(self, requirement: str, features: List[dict]) -> str:
+    def _generate_architecture(self, requirement: str, features: list[dict]) -> str:
         """Generate architecture document."""
         doc = [
             "# System Architecture",
@@ -110,31 +120,33 @@ class DesignAgent(Agent):
             doc.append(f"- **数据**: {feature['title']} 相关数据表")
             doc.append("")
 
-        doc.extend([
-            "## 3. 技术栈决策",
-            "",
-            "| 层 | 技术选择 | 理由 |",
-            "|----|---------|------|",
-            "| 前端 | React 18 + TypeScript | 生态成熟、类型安全 |",
-            "| 样式 | Tailwind CSS | 快速构建、无需切换文件 |",
-            "| 状态 | Zustand | 轻量级、简单易用 |",
-            "| 后端 | FastAPI + Python 3.11 | 高性能、自动文档、类型提示 |",
-            "| 数据库 | SQLite (MVP) → PostgreSQL | 零配置起步、可平滑升级 |",
-            "| 通信 | REST API | 简单、调试方便 |",
-            "| 部署 | Docker | 一键运行 |",
-            "",
-            "## 4. 设计原则",
-            "",
-            "- **关注点分离**: 前端/后端各自独立，通过 API 解耦",
-            "- **单一职责**: 每个组件/模块只做一件事",
-            "- **约定优于配置**: 遵循主流框架的默认方式",
-            "- **渐进式完善**: 先实现核心功能，再逐步打磨",
-            "",
-        ])
+        doc.extend(
+            [
+                "## 3. 技术栈决策",
+                "",
+                "| 层 | 技术选择 | 理由 |",
+                "|----|---------|------|",
+                "| 前端 | React 18 + TypeScript | 生态成熟、类型安全 |",
+                "| 样式 | Tailwind CSS | 快速构建、无需切换文件 |",
+                "| 状态 | Zustand | 轻量级、简单易用 |",
+                "| 后端 | FastAPI + Python 3.11 | 高性能、自动文档、类型提示 |",
+                "| 数据库 | SQLite (MVP) → PostgreSQL | 零配置起步、可平滑升级 |",
+                "| 通信 | REST API | 简单、调试方便 |",
+                "| 部署 | Docker | 一键运行 |",
+                "",
+                "## 4. 设计原则",
+                "",
+                "- **关注点分离**: 前端/后端各自独立，通过 API 解耦",
+                "- **单一职责**: 每个组件/模块只做一件事",
+                "- **约定优于配置**: 遵循主流框架的默认方式",
+                "- **渐进式完善**: 先实现核心功能，再逐步打磨",
+                "",
+            ]
+        )
 
         return "\n".join(doc)
 
-    def _generate_api(self, features: List[dict]) -> str:
+    def _generate_api(self, features: list[dict]) -> str:
         """Generate API specification."""
         doc = [
             "# API Contract",
@@ -155,8 +167,8 @@ class DesignAgent(Agent):
             resource = feature["title"].lower().replace(" ", "_")
             doc.append(f"### {i}. {feature['title']} API")
             doc.append("")
-            doc.append(f"| 方法 | 路径 | 描述 |")
-            doc.append(f"|------|------|------|")
+            doc.append("| 方法 | 路径 | 描述 |")
+            doc.append("|------|------|------|")
             doc.append(f"| GET | `/api/v1/{resource}` | 获取列表 |")
             doc.append(f"| POST | `/api/v1/{resource}` | 创建 |")
             doc.append(f"| GET | `/api/v1/{resource}/{{id}}` | 获取详情 |")
@@ -164,35 +176,37 @@ class DesignAgent(Agent):
             doc.append(f"| DELETE | `/api/v1/{resource}/{{id}}` | 删除 |")
             doc.append("")
 
-        doc.extend([
-            "## 统一响应格式",
-            "",
-            "```json",
-            "{",
-            '  "success": true,',
-            '  "data": { ... },',
-            '  "error": null',
-            "}",
-            "```",
-            "",
-            "## 错误响应",
-            "",
-            "```json",
-            "{",
-            '  "success": false,',
-            '  "data": null,',
-            '  "error": {',
-            '    "code": "RESOURCE_NOT_FOUND",',
-            '    "message": "Resource not found"',
-            "  }",
-            "}",
-            "```",
-            "",
-        ])
+        doc.extend(
+            [
+                "## 统一响应格式",
+                "",
+                "```json",
+                "{",
+                '  "success": true,',
+                '  "data": { ... },',
+                '  "error": null',
+                "}",
+                "```",
+                "",
+                "## 错误响应",
+                "",
+                "```json",
+                "{",
+                '  "success": false,',
+                '  "data": null,',
+                '  "error": {',
+                '    "code": "RESOURCE_NOT_FOUND",',
+                '    "message": "Resource not found"',
+                "  }",
+                "}",
+                "```",
+                "",
+            ]
+        )
 
         return "\n".join(doc)
 
-    def _generate_database(self, features: List[dict]) -> str:
+    def _generate_database(self, features: list[dict]) -> str:
         """Generate database schema."""
         doc = [
             "# Database Schema",
@@ -215,31 +229,35 @@ class DesignAgent(Agent):
             doc.append("| `updated_at` | TIMESTAMP | DEFAULT NOW() | 更新时间 |")
             doc.append("")
 
-        doc.extend([
-            "## 索引建议",
-            "",
-            "- 各表 `id` 为主键索引",
-            "- 状态字段 `status` 建立索引用于过滤查询",
-            "- 时间字段 `created_at` 建立索引用于排序",
-            "",
-        ])
+        doc.extend(
+            [
+                "## 索引建议",
+                "",
+                "- 各表 `id` 为主键索引",
+                "- 状态字段 `status` 建立索引用于过滤查询",
+                "- 时间字段 `created_at` 建立索引用于排序",
+                "",
+            ]
+        )
 
         return "\n".join(doc)
 
-    def _extract_api_routes(self, features: List[dict]) -> List[str]:
+    def _extract_api_routes(self, features: list[dict]) -> list[str]:
         """Extract list of API routes from features."""
         routes = []
         for feature in features:
             resource = feature["title"].lower().replace(" ", "_")
-            routes.extend([
-                f"GET /api/v1/{resource}",
-                f"POST /api/v1/{resource}",
-                f"GET /api/v1/{resource}/{{id}}",
-                f"PUT /api/v1/{resource}/{{id}}",
-                f"DELETE /api/v1/{resource}/{{id}}",
-            ])
+            routes.extend(
+                [
+                    f"GET /api/v1/{resource}",
+                    f"POST /api/v1/{resource}",
+                    f"GET /api/v1/{resource}/{{id}}",
+                    f"PUT /api/v1/{resource}/{{id}}",
+                    f"DELETE /api/v1/{resource}/{{id}}",
+                ]
+            )
         return routes
 
-    def _extract_tables(self, features: List[dict]) -> List[str]:
+    def _extract_tables(self, features: list[dict]) -> list[str]:
         """Extract list of database tables from features."""
         return [f["title"].lower().replace(" ", "_") + "s" for f in features]

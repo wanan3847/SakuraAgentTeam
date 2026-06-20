@@ -1,6 +1,7 @@
 """Anthropic LLM Provider implementation."""
 
-from typing import Any, AsyncIterator, Iterator, List, Optional
+from collections.abc import AsyncIterator, Iterator
+from typing import Any
 
 from anthropic import Anthropic, AsyncAnthropic
 
@@ -24,8 +25,8 @@ class AnthropicProvider(LLMProvider):
     def __init__(
         self,
         model: str = "claude-sonnet-4-20250514",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs: Any,
     ):
         """Initialize Anthropic provider.
@@ -42,8 +43,8 @@ class AnthropicProvider(LLMProvider):
         self.async_client = AsyncAnthropic(api_key=api_key, base_url=base_url)
 
     def _prepare_messages_for_anthropic(
-        self, messages: List[Message]
-    ) -> tuple[Optional[str], List[dict]]:
+        self, messages: list[Message]
+    ) -> tuple[str | None, list[dict]]:
         """Prepare messages for Anthropic API.
 
         Anthropic uses a separate 'system' parameter instead of system messages.
@@ -65,7 +66,7 @@ class AnthropicProvider(LLMProvider):
 
         return system_prompt, api_messages
 
-    def chat(self, messages: List[Message], **kwargs: Any) -> LLMResponse:
+    def chat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
         """Synchronous chat completion.
 
         Args:
@@ -109,7 +110,7 @@ class AnthropicProvider(LLMProvider):
             finish_reason=response.stop_reason,
         )
 
-    async def achat(self, messages: List[Message], **kwargs: Any) -> LLMResponse:
+    async def achat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
         """Asynchronous chat completion.
 
         Args:
@@ -152,7 +153,7 @@ class AnthropicProvider(LLMProvider):
             finish_reason=response.stop_reason,
         )
 
-    def stream(self, messages: List[Message], **kwargs: Any) -> Iterator[str]:
+    def stream(self, messages: list[Message], **kwargs: Any) -> Iterator[str]:
         """Streaming chat completion.
 
         Args:
@@ -174,10 +175,9 @@ class AnthropicProvider(LLMProvider):
             messages=api_messages,
             **kwargs,
         ) as stream:
-            for text in stream.text_stream:
-                yield text
+            yield from stream.text_stream
 
-    async def astream(self, messages: List[Message], **kwargs: Any) -> AsyncIterator[str]:
+    async def astream(self, messages: list[Message], **kwargs: Any) -> AsyncIterator[str]:
         """Asynchronous streaming chat completion.
 
         Args:

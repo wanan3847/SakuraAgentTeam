@@ -11,7 +11,7 @@ import sys
 from uuid import uuid4
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 # 让脚本能找到 backend 下的 app 包
 sys.path.insert(0, "/Users/yangyazhou/SakuraAgentTeam/backend")

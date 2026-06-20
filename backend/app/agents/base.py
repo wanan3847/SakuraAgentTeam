@@ -10,13 +10,11 @@ Each Agent follows the same lifecycle:
 Subclasses implement the specific logic for their role.
 """
 
-from abc import ABC, abstractmethod
 import asyncio
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any
 
-from app.core.logging import get_logger
-from app.foundation.llm.base import LLMProvider, Message, MessageRole
 from app.agents.types import (
     AgentRole,
     AgentStatus,
@@ -25,6 +23,8 @@ from app.agents.types import (
     Plan,
     PlanStep,
 )
+from app.core.logging import get_logger
+from app.foundation.llm.base import LLMProvider
 
 logger = get_logger(__name__)
 
@@ -34,8 +34,8 @@ class ReviewResult:
     """Result of an Agent's self-review."""
 
     passed: bool
-    issues: List[str]
-    suggestions: List[str]
+    issues: list[str]
+    suggestions: list[str]
 
 
 class Agent(ABC):
@@ -48,12 +48,12 @@ class Agent(ABC):
     role: AgentRole
     description: str = ""
     system_prompt: str = ""
-    skills: List[str] = field(default_factory=list) if False else []
+    skills: list[str] = field(default_factory=list)
 
     def __init__(
         self,
-        llm_provider: Optional[LLMProvider] = None,
-        tools: Optional[Dict[str, Any]] = None,
+        llm_provider: LLMProvider | None = None,
+        tools: dict[str, Any] | None = None,
     ):
         """Initialize the Agent.
 
@@ -64,8 +64,8 @@ class Agent(ABC):
         self.llm = llm_provider
         self.tools = tools or {}
         self.status: AgentStatus = AgentStatus.PENDING
-        self.current_plan: Optional[Plan] = None
-        self.last_artifact: Optional[Artifact] = None
+        self.current_plan: Plan | None = None
+        self.last_artifact: Artifact | None = None
 
     async def plan(self, ctx: Context) -> Plan:
         """Create an execution plan based on the shared context.
@@ -84,7 +84,7 @@ class Agent(ABC):
             else:
                 previous_outputs.append(f"- {role}: {type(output).__name__}")
 
-        planning_prompt = f"""You are the {self.role.value} agent in a multi-agent workflow.
+        f"""You are the {self.role.value} agent in a multi-agent workflow.
 
 ## Your Role
 {self.description or self._default_description()}
@@ -93,7 +93,7 @@ class Agent(ABC):
 {ctx.user_requirement}
 
 ## Previous Agent Outputs
-{'No previous outputs yet (first agent in the chain)' if not previous_outputs else chr(10).join(previous_outputs)}
+{"No previous outputs yet (first agent in the chain)" if not previous_outputs else chr(10).join(previous_outputs)}
 
 ## Experience Hints (lessons from past)
 {chr(10).join(f"- {h['content']}" for h in ctx.experience_hints) if ctx.experience_hints else "No past experiences"}
@@ -230,19 +230,15 @@ Return your response as a JSON object:
             # Materialize the artifact to disk before committing.
             files_to_write: list[tuple[str, str]] = []
 
-            files_meta = (
-                artifact.metadata.get("files") if artifact.metadata else None
-            )
+            files_meta = artifact.metadata.get("files") if artifact.metadata else None
             if isinstance(files_meta, list):
                 for entry in files_meta:
                     if isinstance(entry, dict) and "path" in entry and "content" in entry:
                         files_to_write.append((entry["path"], entry["content"]))
             elif artifact.metadata and isinstance(artifact.metadata.get("path"), str):
-                files_to_write.append(
-                    (artifact.metadata["path"], str(artifact.content))
-                )
+                files_to_write.append((artifact.metadata["path"], str(artifact.content)))
 
-            def _do_commit() -> Optional[str]:
+            def _do_commit() -> str | None:
                 repo = open_or_create(projects_root, project_id)
                 if files_to_write:
                     written_paths = []
@@ -274,7 +270,7 @@ Return your response as a JSON object:
         error_message: str,
         error_type: str = "",
         top_k: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search the experience store for similar past errors.
 
         Returns a list of hint dicts: ``{content, error_type, solution}``.
@@ -306,7 +302,7 @@ Return your response as a JSON object:
         error_type: str,
         solution: str,
         success: bool = True,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Persist a new experience to the global store.
 
         Called by subclasses (or by the orchestrator) when an error has
@@ -344,7 +340,7 @@ Return your response as a JSON object:
         """Default plan summary."""
         return f"Execute {self.role.value} tasks based on requirements"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         """Default plan steps - subclasses should override."""
         return [
             PlanStep(

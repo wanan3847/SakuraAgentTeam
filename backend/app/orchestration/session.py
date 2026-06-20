@@ -6,23 +6,23 @@ It stores the current state, Agent progress, and all generated artifacts.
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
-from app.core.logging import get_logger
 from app.agents.types import AgentRole, AgentStatus, Artifact, Context
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 def _utcnow_iso() -> str:
     """Return current UTC time as ISO 8601 string with timezone info."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
-class SessionStatus(str, Enum):
+class SessionStatus(StrEnum):
     """Overall status of a Session."""
 
     CREATED = "created"
@@ -38,9 +38,9 @@ class AgentProgress:
 
     role: str
     status: AgentStatus = AgentStatus.PENDING
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    error: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    error: str | None = None
 
 
 @dataclass
@@ -53,12 +53,12 @@ class Session:
     status: SessionStatus = SessionStatus.CREATED
     created_at: str = field(default_factory=_utcnow_iso)
     updated_at: str = field(default_factory=_utcnow_iso)
-    agent_progress: Dict[str, AgentProgress] = field(default_factory=dict)
-    artifacts: List[Artifact] = field(default_factory=list)
-    context: Optional[Context] = None
-    error_message: Optional[str] = None
+    agent_progress: dict[str, AgentProgress] = field(default_factory=dict)
+    artifacts: list[Artifact] = field(default_factory=list)
+    context: Context | None = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize session for frontend."""
         return {
             "id": self.id,
@@ -68,7 +68,11 @@ class Session:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "agent_progress": {
-                role: {"status": p.status.value, "started_at": p.started_at, "completed_at": p.completed_at}
+                role: {
+                    "status": p.status.value,
+                    "started_at": p.started_at,
+                    "completed_at": p.completed_at,
+                }
                 for role, p in self.agent_progress.items()
             },
             "artifacts_count": len(self.artifacts),
@@ -88,10 +92,10 @@ class SessionManager:
 
     def __init__(self):
         """Initialize session storage."""
-        self._sessions: Dict[str, Session] = {}
+        self._sessions: dict[str, Session] = {}
         self._lock = asyncio.Lock()
 
-    def create_session(self, requirement: str, project_id: Optional[str] = None) -> Session:
+    def create_session(self, requirement: str, project_id: str | None = None) -> Session:
         """Create a new session."""
         session_id = uuid4().hex[:16]
         pid = project_id or session_id
@@ -117,11 +121,11 @@ class SessionManager:
 
         return session
 
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Session | None:
         """Get a session by ID."""
         return self._sessions.get(session_id)
 
-    def list_sessions(self) -> List[Session]:
+    def list_sessions(self) -> list[Session]:
         """List all sessions (most recent first)."""
         return sorted(
             self._sessions.values(),
@@ -149,7 +153,7 @@ class SessionManager:
         session_id: str,
         agent_role: str,
         status: AgentStatus,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """Update progress for a specific Agent in a session."""
         session = self._sessions.get(session_id)

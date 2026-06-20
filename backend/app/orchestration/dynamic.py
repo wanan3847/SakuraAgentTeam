@@ -10,13 +10,12 @@ multi-agent systems.
 """
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from app.core.logging import get_logger
 from app.orchestration.workflows import (
-    FULL_GREENFIELD,
     BROWNFIELD,
+    FULL_GREENFIELD,
     INCREMENTAL,
     Workflow,
 )
@@ -24,7 +23,7 @@ from app.orchestration.workflows import (
 logger = get_logger(__name__)
 
 
-class ProjectState(str, Enum):
+class ProjectState(StrEnum):
     """Classification of the current project state."""
 
     GREENFIELD = "greenfield"
@@ -53,7 +52,7 @@ class ProjectAnalyzer:
         """Initialize analyzer with project root directory."""
         self.project_root = project_root
 
-    def analyze(self, project_id: Optional[str] = None, requirement: str = "") -> ProjectAnalysis:
+    def analyze(self, project_id: str | None = None, requirement: str = "") -> ProjectAnalysis:
         """Analyze project state.
 
         Args:
@@ -77,7 +76,8 @@ class ProjectAnalyzer:
                 # Count files
                 all_files = list(project_path.rglob("*"))
                 code_files = [
-                    f for f in all_files
+                    f
+                    for f in all_files
                     if f.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".json"}
                 ]
                 file_count = len(code_files)
@@ -89,9 +89,7 @@ class ProjectAnalyzer:
                 has_git = (project_path / ".git").exists()
 
                 # Check for database
-                has_database = any(
-                    f.suffix in {".db", ".sqlite", ".sqlite3"} for f in all_files
-                )
+                has_database = any(f.suffix in {".db", ".sqlite", ".sqlite3"} for f in all_files)
 
         # Determine state
         if not has_code:
@@ -114,7 +112,10 @@ class ProjectAnalyzer:
         # Nudge from requirement: if user says "new project", "from scratch", greenfield
         if requirement:
             req_lower = requirement.lower()
-            if any(kw in req_lower for kw in ["新建", "从零", "from scratch", "新的项目", "new project"]):
+            if any(
+                kw in req_lower
+                for kw in ["新建", "从零", "from scratch", "新的项目", "new project"]
+            ):
                 state = ProjectState.GREENFIELD
                 confidence = max(confidence, 0.85)
                 recommendation = "User requested new project. Using full greenfield workflow."
@@ -147,13 +148,13 @@ class ProjectAnalyzer:
 class WorkflowSelector:
     """Selects the appropriate workflow based on project state."""
 
-    def __init__(self, analyzer: Optional[ProjectAnalyzer] = None):
+    def __init__(self, analyzer: ProjectAnalyzer | None = None):
         """Initialize with a project analyzer."""
         self.analyzer = analyzer or ProjectAnalyzer()
 
     def select(
         self,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
         requirement: str = "",
     ) -> Workflow:
         """Select a workflow.

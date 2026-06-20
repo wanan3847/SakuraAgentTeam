@@ -35,6 +35,8 @@ app = FastAPI(
     description="多智能体可协同全栈 Agent 开发系统",
 )
 
+from app.api.routes import router as api_router  # noqa: E402
+
 # CORS middleware - allow all for development
 app.add_middleware(
     CORSMiddleware,
@@ -44,8 +46,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Import and mount routes
-from app.api.routes import router as api_router
 app.include_router(api_router)
 
 
@@ -79,6 +79,7 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.api.main:app",
         host="0.0.0.0",

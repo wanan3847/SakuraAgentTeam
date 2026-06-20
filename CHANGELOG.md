@@ -12,6 +12,9 @@ SakuraAgentTeam 的所有变更记录。格式基于 [Keep a Changelog](https://
 - **deploy.sh**：一键启动 dev/prod/stop/logs/clean
 - **infra/docker-compose.yml** + **frontend/Dockerfile** + **nginx.conf**：Docker 生产部署
 - **README.md 增强**：徽章 + 特性 + 5 分钟跑通 + 路线图
+- **docs/coverage.md**：测试覆盖率报告（70% 总覆盖率，各模块明细）
+- **CONTRIBUTING.md**：开发环境 / 规范 / PR 流程 / Commit 规范
+- **architecture.md 章节编号统一**：所有子章节编号修正为「顶级章节号.x」一致格式
 
 ### Changed
 - **M2-I2 修复**：engine.py 在 `agent.run()` 成功后调用 `update_agent_progress(COMPLETED)`，修复 agent_progress 永远显示 running 的 bug

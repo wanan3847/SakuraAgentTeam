@@ -48,7 +48,7 @@ def build_context(requirement: str, role: str) -> object:
     """Build a minimal Context for the chosen agent role."""
     from app.agents.types import AgentRole, Context
 
-    role_enum = AgentRole(role)
+    AgentRole(role)
 
     return Context(
         session_id=f"debug-{uuid4().hex[:8]}",
@@ -81,12 +81,20 @@ async def run_agent(role: str, requirement: str) -> None:
     artifact = await agent.run(ctx)
 
     print("\n=== Artifact ===")
-    print(json.dumps(artifact.to_dict() if hasattr(artifact, "to_dict") else {
-        "name": artifact.name,
-        "type": artifact.artifact_type,
-        "summary": artifact.summary,
-        "path": artifact.path,
-    }, indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            artifact.to_dict()
+            if hasattr(artifact, "to_dict")
+            else {
+                "name": artifact.name,
+                "type": artifact.artifact_type,
+                "summary": artifact.summary,
+                "path": artifact.path,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
 
     if artifact.content:
         preview = str(artifact.content)

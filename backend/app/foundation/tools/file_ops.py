@@ -2,9 +2,9 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.logging import get_logger
 from app.foundation.tools.base import (
@@ -21,8 +21,8 @@ class FileReadInput(ToolInput):
     """Input for FileReadTool."""
 
     file_path: str = Field(..., description="Path to the file to read")
-    start_line: Optional[int] = Field(None, description="Start line number (1-indexed)")
-    end_line: Optional[int] = Field(None, description="End line number (1-indexed)")
+    start_line: int | None = Field(None, description="Start line number (1-indexed)")
+    end_line: int | None = Field(None, description="End line number (1-indexed)")
     encoding: str = Field("utf-8", description="File encoding")
 
 
@@ -38,7 +38,7 @@ class FileReadTool(Tool[FileReadInput]):
     input_schema = FileReadInput
     aliases = ["read", "cat"]
 
-    def __init__(self, allowed_root: Optional[str] = None):
+    def __init__(self, allowed_root: str | None = None):
         """Initialize the file read tool.
 
         Args:
@@ -73,7 +73,7 @@ class FileReadTool(Tool[FileReadInput]):
         return path
 
     def check_permissions(
-        self, input_data: FileReadInput, context: Dict[str, Any]
+        self, input_data: FileReadInput, context: dict[str, Any]
     ) -> PermissionResult:
         """Check if the file can be read.
 
@@ -98,7 +98,7 @@ class FileReadTool(Tool[FileReadInput]):
         """File read is always read-only."""
         return True
 
-    async def call(self, input_data: FileReadInput, context: Dict[str, Any]) -> ToolResult:
+    async def call(self, input_data: FileReadInput, context: dict[str, Any]) -> ToolResult:
         """Read file contents.
 
         Args:

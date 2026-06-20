@@ -13,11 +13,10 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Optional
 
-from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
 from app.agents.types import AgentRole, Artifact, Context, Plan
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -31,7 +30,7 @@ class DeploymentAgent(Agent):
     def _default_plan_summary(self, ctx: Context) -> str:
         return "Generate Dockerfile, docker-compose, and deployment README"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         return [
             PlanStep(description="Create Dockerfile for backend", tool="file_write"),
             PlanStep(description="Create docker-compose.yml", tool="file_write"),
@@ -94,7 +93,7 @@ class DeploymentAgent(Agent):
         compose: str,
         dockerfile: str,
         frontend_docker: str,
-    ) -> tuple[Optional[bool], str]:
+    ) -> tuple[bool | None, str]:
         """Verify docker-compose syntax without actually building.
 
         Strategy:
@@ -128,21 +127,19 @@ class DeploymentAgent(Agent):
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=20
-                )
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=20)
                 if proc.returncode == 0:
                     return True, "docker-compose syntax valid"
                 err = (stderr or stdout).decode("utf-8", errors="replace")[:500]
                 return False, f"docker compose config failed: {err.strip()}"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return False, "docker compose config timeout (>20s)"
             except Exception as e:
                 return False, f"verify error: {e}"
 
     def _generate_dockerfile(self) -> str:
         """Generate backend Dockerfile."""
-        return '''FROM python:3.11-slim
+        return """FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -158,11 +155,11 @@ COPY . .
 EXPOSE 8000
 
 CMD ["python", "main.py"]
-'''
+"""
 
     def _generate_frontend_dockerfile(self) -> str:
         """Generate frontend Dockerfile (build step + nginx serve)."""
-        return '''FROM node:20-alpine AS build
+        return """FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -174,11 +171,11 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
-'''
+"""
 
     def _generate_docker_compose(self) -> str:
         """Generate docker-compose.yml."""
-        return '''version: '3.8'
+        return """version: '3.8'
 
 services:
   backend:
@@ -203,11 +200,11 @@ services:
 
 volumes:
   sakura-db:
-'''
+"""
 
     def _generate_readme(self) -> str:
         """Generate deployment README."""
-        return '''# Deployment Guide
+        return """# Deployment Guide
 
 ## Quick Start (docker-compose)
 
@@ -265,4 +262,4 @@ npm run dev
 │   └── package.json
 └── docker-compose.yml
 ```
-'''
+"""

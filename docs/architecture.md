@@ -458,8 +458,8 @@ SakuraAgentTeam/
 | M4-I2 | 部署 Agent 真实 docker build | 对 mock 生成的产物跑 `docker build` 验证语法正确 | ✅ dry-run 验证已加 |
 | M4-I3 | 完整 demo 录制文档 | docs/demo.md 包含启动 → 创建 → 查看产物 → git 历史的完整命令清单 | ✅ |
 | M4-I4 | CHANGELOG | 项目变更日志（按里程碑 + 按 commit 索引） | ✅ |
-| M4-I5 | 单元测试覆盖率报告 | pytest-cov 输出覆盖率到 `docs/coverage.md` | ⏳ |
-| M4-I6 | 贡献指南 | CONTRIBUTING.md（开发环境 / PR 流程 / 代码规范） | ⏳ |
-| M4-I7 | 监控/可观测性 | OpenTelemetry trace + Prometheus metrics（可选） | ⏳ 非阻塞 |
+| M4-I5 | 单元测试覆盖率报告 | pytest-cov 输出覆盖率到 `docs/coverage.md` | ✅ 70% 总覆盖率 |
+| M4-I6 | 贡献指南 | CONTRIBUTING.md（开发环境 / PR 流程 / 代码规范） | ✅ |
+| M4-I7 | 监控/可观测性 | OpenTelemetry trace + Prometheus metrics（可选） | ⏭️ 暂不实现（依赖实际部署量） |
 
 > 完成 M4 后进入"维护模式"：bug 修复 + 用户反馈驱动的微调。

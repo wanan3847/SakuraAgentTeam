@@ -7,11 +7,10 @@ For production, it should use Docker sandbox.
 
 import asyncio
 import os
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -29,9 +28,9 @@ class ShellRunInput(ToolInput):
     """Input for ShellRunTool."""
 
     command: str = Field(..., description="Command to execute")
-    cwd: Optional[str] = Field(None, description="Working directory")
+    cwd: str | None = Field(None, description="Working directory")
     timeout: int = Field(60, description="Timeout in seconds", ge=1, le=600)
-    env: Optional[Dict[str, str]] = Field(None, description="Environment variables")
+    env: dict[str, str] | None = Field(None, description="Environment variables")
 
 
 # Blocked commands for security
@@ -83,7 +82,7 @@ class ShellRunTool(Tool[ShellRunInput]):
     input_schema = ShellRunInput
     aliases = ["run", "exec", "bash"]
 
-    def __init__(self, allowed_root: Optional[str] = None):
+    def __init__(self, allowed_root: str | None = None):
         """Initialize the shell run tool.
 
         Args:
@@ -117,7 +116,7 @@ class ShellRunTool(Tool[ShellRunInput]):
         return base_cmd in ALLOWED_COMMANDS
 
     def check_permissions(
-        self, input_data: ShellRunInput, context: Dict[str, Any]
+        self, input_data: ShellRunInput, context: dict[str, Any]
     ) -> PermissionResult:
         """Check if the command can be executed.
 
@@ -148,7 +147,7 @@ class ShellRunTool(Tool[ShellRunInput]):
 
         return PermissionResult.ALLOW
 
-    async def call(self, input_data: ShellRunInput, context: Dict[str, Any]) -> ToolResult:
+    async def call(self, input_data: ShellRunInput, context: dict[str, Any]) -> ToolResult:
         """Execute the shell command.
 
         Args:
@@ -197,7 +196,7 @@ class ShellRunTool(Tool[ShellRunInput]):
                     process.communicate(),
                     timeout=input_data.timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 process.kill()
                 return ToolResult(
                     success=False,

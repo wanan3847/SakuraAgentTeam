@@ -5,11 +5,9 @@ Produces:
 - API integration tests
 """
 
-from typing import List
-
-from app.core.logging import get_logger
 from app.agents.base import Agent, PlanStep
 from app.agents.types import AgentRole, Artifact, Context, Plan
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,7 +21,7 @@ class TestingAgent(Agent):
     def _default_plan_summary(self, ctx: Context) -> str:
         return "Generate pytest test files for backend API"
 
-    def _default_plan_steps(self, ctx: Context) -> List[PlanStep]:
+    def _default_plan_steps(self, ctx: Context) -> list[PlanStep]:
         return [
             PlanStep(description="Generate API endpoint tests", tool="file_write"),
             PlanStep(description="Generate CRUD operation tests", tool="file_write"),
@@ -55,7 +53,7 @@ class TestingAgent(Agent):
         logger.info("testing_agent_done", session_id=ctx.session_id)
         return artifact
 
-    def _extract_features(self, ctx: Context) -> List[dict]:
+    def _extract_features(self, ctx: Context) -> list[dict]:
         """Extract features from context."""
         backend_output = ctx.get_output(AgentRole.BACKEND.value)
         if backend_output and hasattr(backend_output, "metadata"):
@@ -64,7 +62,7 @@ class TestingAgent(Agent):
 
         return [{"title": "items", "description": "Core items"}]
 
-    def _generate_tests(self, features: List[dict]) -> str:
+    def _generate_tests(self, features: list[dict]) -> str:
         """Generate comprehensive pytest tests."""
         parts = [
             '"""Auto-generated tests for Sakura API."""',

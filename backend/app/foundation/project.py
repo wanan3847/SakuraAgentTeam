@@ -4,10 +4,8 @@ This module provides Git-based version control for project artifacts.
 Each project is stored as a Git repository with automatic commits.
 """
 
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import git
 from git import Repo
@@ -28,7 +26,7 @@ class ProjectStore:
     - Commit history for rollback
     """
 
-    def __init__(self, projects_root: Optional[str] = None):
+    def __init__(self, projects_root: str | None = None):
         """Initialize the project store.
 
         Args:
@@ -76,7 +74,7 @@ class ProjectStore:
 
         return project_path
 
-    def get_project(self, project_id: str) -> Optional[Repo]:
+    def get_project(self, project_id: str) -> Repo | None:
         """Get a project repository.
 
         Args:
@@ -94,7 +92,7 @@ class ProjectStore:
         except git.InvalidGitRepositoryError:
             return None
 
-    def list_projects(self) -> List[dict]:
+    def list_projects(self) -> list[dict]:
         """List all projects.
 
         Returns:
@@ -106,14 +104,16 @@ class ProjectStore:
             if project_dir.is_dir():
                 try:
                     repo = Repo(project_dir)
-                    projects.append({
-                        "id": project_dir.name,
-                        "path": str(project_dir),
-                        "last_commit": repo.head.commit.message,
-                        "last_commit_time": datetime.fromtimestamp(
-                            repo.head.commit.committed_date
-                        ).isoformat(),
-                    })
+                    projects.append(
+                        {
+                            "id": project_dir.name,
+                            "path": str(project_dir),
+                            "last_commit": repo.head.commit.message,
+                            "last_commit_time": datetime.fromtimestamp(
+                                repo.head.commit.committed_date
+                            ).isoformat(),
+                        }
+                    )
                 except git.InvalidGitRepositoryError:
                     continue
 
@@ -124,7 +124,7 @@ class ProjectStore:
         project_id: str,
         file_path: str,
         content: str,
-        commit_message: Optional[str] = None,
+        commit_message: str | None = None,
     ) -> bool:
         """Add or update a file in a project.
 
@@ -169,7 +169,7 @@ class ProjectStore:
 
         return True
 
-    def read_file(self, project_id: str, file_path: str) -> Optional[str]:
+    def read_file(self, project_id: str, file_path: str) -> str | None:
         """Read a file from a project.
 
         Args:
@@ -187,7 +187,7 @@ class ProjectStore:
 
         return full_path.read_text()
 
-    def list_files(self, project_id: str, directory: str = "") -> List[dict]:
+    def list_files(self, project_id: str, directory: str = "") -> list[dict]:
         """List files in a project directory.
 
         Args:
@@ -209,18 +209,18 @@ class ProjectStore:
                 continue
 
             relative_path = str(item.relative_to(project_path))
-            files.append({
-                "name": item.name,
-                "path": relative_path,
-                "type": "directory" if item.is_dir() else "file",
-                "size": item.stat().st_size if item.is_file() else 0,
-            })
+            files.append(
+                {
+                    "name": item.name,
+                    "path": relative_path,
+                    "type": "directory" if item.is_dir() else "file",
+                    "size": item.stat().st_size if item.is_file() else 0,
+                }
+            )
 
         return files
 
-    def create_branch(
-        self, project_id: str, branch_name: str, from_branch: str = "main"
-    ) -> bool:
+    def create_branch(self, project_id: str, branch_name: str, from_branch: str = "main") -> bool:
         """Create a new branch.
 
         Args:
@@ -252,7 +252,7 @@ class ProjectStore:
             logger.error("project_branch_failed", error=str(e))
             return False
 
-    def get_commit_history(self, project_id: str, limit: int = 10) -> List[dict]:
+    def get_commit_history(self, project_id: str, limit: int = 10) -> list[dict]:
         """Get commit history for a project.
 
         Args:
@@ -268,12 +268,14 @@ class ProjectStore:
 
         commits = []
         for commit in list(repo.iter_commits(max_count=limit)):
-            commits.append({
-                "hash": commit.hexsha[:8],
-                "message": commit.message,
-                "author": commit.author.name,
-                "time": datetime.fromtimestamp(commit.committed_date).isoformat(),
-            })
+            commits.append(
+                {
+                    "hash": commit.hexsha[:8],
+                    "message": commit.message,
+                    "author": commit.author.name,
+                    "time": datetime.fromtimestamp(commit.committed_date).isoformat(),
+                }
+            )
 
         return commits
 

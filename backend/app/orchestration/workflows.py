@@ -7,7 +7,6 @@ Three workflow types:
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 from app.agents.types import AgentRole
 
@@ -17,7 +16,7 @@ class WorkflowStep:
     """A single step in the workflow DAG."""
 
     agent_role: AgentRole
-    depends_on: List[AgentRole] = field(default_factory=list)
+    depends_on: list[AgentRole] = field(default_factory=list)
     optional: bool = False
 
 
@@ -27,7 +26,7 @@ class Workflow:
 
     name: str
     description: str
-    steps: List[WorkflowStep]
+    steps: list[WorkflowStep]
 
 
 # ---------------------------------------------------------------------------
@@ -134,12 +133,12 @@ WORKFLOWS = {
 }
 
 
-def get_workflow(name: str) -> Optional[Workflow]:
+def get_workflow(name: str) -> Workflow | None:
     """Get workflow by name."""
     return WORKFLOWS.get(name)
 
 
-def list_workflow_names() -> List[str]:
+def list_workflow_names() -> list[str]:
     """List all available workflow names."""
     return list(WORKFLOWS.keys())
 
