@@ -15,6 +15,16 @@ SakuraAgentTeam 的所有变更记录。格式基于 [Keep a Changelog](https://
 - **docs/coverage.md**：测试覆盖率报告（70% 总覆盖率，各模块明细）
 - **CONTRIBUTING.md**：开发环境 / 规范 / PR 流程 / Commit 规范
 - **architecture.md 章节编号统一**：所有子章节编号修正为「顶级章节号.x」一致格式
+- **M4-I7 LLM 接入流程就绪**：`scripts/llm_connect_check.py` 验证 key 加载 + Provider 实例化（不消耗 token）
+- **deploy.sh 智能后端选择**：system Python 优先 → venv fallback → uv 装（macOS 用户无需重下依赖）
+
+### Fixed
+- **connect-check 占位符检测**：修复把 .env.example 的 `sk-your-...` 当成真 key 的 bug
+- **本地开发体验**：macOS 上 system Python 已有 fastapi/openai/anthropic，deploy.sh 直接用，避免 venv 重下 1GB 依赖
+- **缺失包补齐**：aiofiles / aiosqlite / docker 装上（uv 装，比 pip 快 100x）
+
+### Known Limitations
+- **ChromaDB 未装**：环境 PyPI 网络受限 + onnxruntime 依赖太大未完成；fallback 关键词检索已可用，**安装为可选优化**（`uv pip install chromadb`）
 
 ### Changed
 - **M2-I2 修复**：engine.py 在 `agent.run()` 成功后调用 `update_agent_progress(COMPLETED)`，修复 agent_progress 永远显示 running 的 bug

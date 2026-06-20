@@ -55,17 +55,36 @@ case "$MODE" in
     check_deps
     load_env
 
-    # 后端
-    if [ ! -d "backend/.venv" ]; then
-      info "创建后端虚拟环境"
+    # ---------- 后端 ----------
+    # 策略：macOS 上 system Python 通常已装核心依赖（fastapi/openai/anthropic/pytest/structlog）
+    # 直接用最快，避免 venv 重新下几百 MB 依赖。
+    # 如果关键包缺失，提示用户用 uv 装（比 pip 快 100x）。
+    if python3 -c "import fastapi, uvicorn, pydantic_settings, openai, anthropic, structlog" 2>/dev/null; then
+      info "使用 system Python（已装核心依赖）"
+      PYTHON=python3
+    elif [ -d "backend/.venv" ] && backend/.venv/bin/python -c "import fastapi, uvicorn, pydantic_settings, openai, anthropic, structlog" 2>/dev/null; then
+      info "使用 backend/.venv 虚拟环境"
+      # shellcheck disable=SC1091
+      source backend/.venv/bin/activate
+      PYTHON=python3
+    else
+      info "创建后端虚拟环境（需要联网）"
       python3 -m venv backend/.venv
+      # shellcheck disable=SC1091
+      source backend/.venv/bin/activate
+      if command -v uv >/dev/null 2>&1; then
+        info "使用 uv 安装依赖（比 pip 快 100x）"
+        uv pip install -q -r backend/requirements.txt
+      else
+        info "使用 pip 安装依赖（首次会下几百 MB）"
+        pip3 install -q -r backend/requirements.txt
+      fi
+      PYTHON=python3
     fi
-    # shellcheck disable=SC1091
-    source backend/.venv/bin/activate
-    pip install -q -r backend/requirements.txt
+
     info "启动后端 http://localhost:8000"
     cd backend
-    nohup python3 -m uvicorn app.api.main:app --reload --port 8000 \
+    nohup "$PYTHON" -m uvicorn app.api.main:app --reload --port 8000 \
       > "$ROOT_DIR/logs/backend.log" 2>&1 &
     BACKEND_PID=$!
     cd "$ROOT_DIR"
