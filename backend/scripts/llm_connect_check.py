@@ -18,6 +18,7 @@
     2 - key 已设置但 provider 加载失败
 """
 
+import logging
 import sys
 from pathlib import Path
 
@@ -25,9 +26,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.config import settings  # noqa: E402
-from app.core.logging import setup_logging  # noqa: E402
 
-setup_logging()
+# 用 stdlib logging 代替 app.core.logging（避免拉一堆依赖）
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 
 def is_placeholder(key: str | None, marker: str) -> bool:
