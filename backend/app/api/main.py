@@ -35,6 +35,7 @@ app = FastAPI(
     description="多智能体可协同全栈 Agent 开发系统",
 )
 
+from app.api.connectors import router as connectors_router  # noqa: E402, F401
 from app.api.routes import router as api_router  # noqa: E402
 
 # CORS middleware - allow all for development
@@ -47,6 +48,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(connectors_router)
 
 
 @app.get("/health")
@@ -73,6 +75,13 @@ async def root():
             "experiences": "/api/v1/experiences",
             "workflows": "/api/v1/workflows",
             "agents": "/api/v1/agents",
+            "connectors": {
+                "github_issues": "/api/v1/connectors/github/issues",
+                "github_pr": "/api/v1/connectors/github/pr",
+                "im": "/api/v1/connectors/im",
+                "upload": "/api/v1/connectors/upload",
+                "url": "/api/v1/connectors/url",
+            },
         },
     }
 

@@ -1,36 +1,65 @@
-version: '3.8'
+version: "3.8"
+
+# SakuraAgentTeam 生产部署
+# 启动：  docker compose -f infra/docker-compose.yml up -d --build
+# 停止：  docker compose -f infra/docker-compose.yml down
+# 日志：  docker compose -f infra/docker-compose.yml logs -f
+# 重启：  docker compose -f infra/docker-compose.yml restart
+#
+# 数据持久化：
+#   - backend_data  -> /app/data（git 仓库、经验库、sessions）
+#   - frontend 直接 build 到 nginx，不需要 volume
+#
+# 端口：
+#   - 8080 (host) -> 80 (frontend nginx)
+#   - 8000 (host) -> 8000 (backend uvicorn)
 
 services:
   backend:
     build:
-      context: ..
-      dockerfile: infra/docker/sandbox.Dockerfile
+      context: ../backend
+      dockerfile: Dockerfile
+    image: sakura-backend:latest
     container_name: sakura-backend
-    working_dir: /workspace
-    command: >
-      bash -c "pip install -q -r requirements.txt &&
-               uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
-    volumes:
-      - ../backend:/workspace
-      - ../data:/workspace/data
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/sakura.db
-      - EXPERIENCE_DB_PATH=./data/experience_db
-      - PROJECTS_ROOT=./data/projects
-      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    working_dir: /app
     env_file:
       - ../backend/.env
-    restart: unless-stopped
+    environment:
+      - PROJECTS_ROOT=/app/data/projects
+      - EXPERIENCE_DB_PATH=/app/data/experience_db
+      - DATA_DIR=/app/data
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
-      context: ..
-      dockerfile: frontend/Dockerfile
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: sakura-frontend:latest
     container_name: sakura-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
     ports:
       - "8080:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  backend_data:
+    name: sakura_backend_data
