@@ -460,6 +460,6 @@ SakuraAgentTeam/
 | M4-I4 | CHANGELOG | 项目变更日志（按里程碑 + 按 commit 索引） | ✅ |
 | M4-I5 | 单元测试覆盖率报告 | pytest-cov 输出覆盖率到 `docs/coverage.md` | ✅ 70% 总覆盖率 |
 | M4-I6 | 贡献指南 | CONTRIBUTING.md（开发环境 / PR 流程 / 代码规范） | ✅ |
-| M4-I7 | 监控/可观测性 | OpenTelemetry trace + Prometheus metrics（可选） | ⏭️ 暂不实现（依赖实际部署量） |
+| M4-I7 | 真实 LLM Provider 接入 | `scripts/llm_connect_check.py` 验证流程就绪（不消耗 token） | ✅ 流程就绪 · ChromaDB 受环境限制未装 |
 
 > 完成 M4 后进入"维护模式"：bug 修复 + 用户反馈驱动的微调。
