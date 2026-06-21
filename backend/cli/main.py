@@ -252,6 +252,31 @@ def cmd_projects(output_format: str | None = typer.Option(None, "--output", "-o"
         emit(data, output_format=fmt)
 
 
+@app.command("providers")
+def cmd_providers(
+    full: bool = typer.Option(False, "--full", help="列出 litellm 注册的全部模型"),
+    output_format: str | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """列出支持的 LLM 提供商（默认常用 24 个，--full 全部 100+）。"""
+    cfg = get_config()
+    fmt = output_format or cfg.output_format
+    from app.foundation.llm import COMMON_PROVIDERS
+
+    if full:
+        try:
+            import litellm
+
+            models = sorted(litellm.model_cost.keys())
+            data = [{"provider_model": m} for m in models]
+        except ImportError:
+            error("litellm 未安装")
+            raise typer.Exit(1) from None
+    else:
+        data = [{"prefix": p, "description": d} for p, d in COMMON_PROVIDERS]
+
+    emit(data, output_format=fmt)
+
+
 # ============================================================
 # doctor
 # ============================================================

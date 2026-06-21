@@ -253,18 +253,86 @@ ls -R
 
 ## 5. LLM Provider 配置
 
+### 5.1 100+ 提供商（通过 litellm）
+
+默认使用 **Mock Provider**（不调用真实 API，产物结构完整但内容是占位模板）。要启用真模型：
+
 ```bash
-# 1. 编辑 backend/.env
+# 1. 编辑 backend/.env（按你的提供商填对应 Key）
+echo "DEFAULT_LLM_PROVIDER=litellm" >> backend/.env
+echo "DEFAULT_LLM_MODEL=openai/gpt-4o" >> backend/.env       # OpenAI
 echo "OPENAI_API_KEY=sk-..." >> backend/.env
-echo "DEFAULT_LLM_PROVIDER=openai" >> backend/.env
-echo "DEFAULT_LLM_MODEL=gpt-4o" >> backend/.env
+
+# 或 DeepSeek
+echo "DEFAULT_LLM_MODEL=deepseek/deepseek-chat" >> backend/.env
+echo "DEEPSEEK_API_KEY=sk-..." >> backend/.env
+
+# 或阿里 Qwen
+echo "DEFAULT_LLM_MODEL=dashscope/qwen-plus" >> backend/.env
+echo "DASHSCOPE_API_KEY=sk-..." >> backend/.env
+
+# 或本地 Ollama（无需 Key，填占位）
+echo "DEFAULT_LLM_MODEL=ollama/llama3" >> backend/.env
+echo "LOCAL_MODEL_BASE_URL=http://localhost:11434" >> backend/.env
 
 # 2. 验证接入（不消耗 token）
 cd backend && python3 scripts/llm_connect_check.py
 # 退出码 0 = 就绪，1 = 未配置，2 = 加载失败
 ```
 
-支持：`openai`（gpt-4o / gpt-4-turbo / ...）和 `anthropic`（claude-sonnet-4 / claude-opus-4 / ...）。
+### 5.2 完整支持列表
+
+[litellm 文档](https://docs.litellm.ai/docs/providers) 支持 **100+ 提供商 / 2784+ 模型**：
+
+| 协议类 | 云平台 | 国产 | 主流第三方 | 本地 |
+|--------|--------|------|-----------|------|
+| `openai/*` `anthropic/*` | `bedrock/*` `vertex_ai/*` `azure/*` | `deepseek/*` `dashscope/*`（Qwen）`zhipuai/*`（GLM）`moonshot/*`（Kimi）`yi/*` `volcengine/*` `hunyuan/*` `qianfan/*` | `gemini/*` `mistral/*` `cohere/*` `groq/*` `together_ai/*` `openrouter/*` `fireworks_ai/*` `deepinfra/*` | `ollama/*` `vllm/*` `openai_like/*`（任意 OpenAI 兼容端点） |
+
+### 5.3 CLI 查询
+
+```bash
+cd backend
+python3 -m cli providers         # 24 个常用 provider 速查
+python3 -m cli providers --full  # 2784 个全量模型列表
+```
+
+### 5.4 Provider 抽象层（高级）
+
+`app/foundation/llm/` 下三个内置实现，可独立使用或扩展：
+
+| Provider | 适用场景 |
+|----------|----------|
+| `OpenAIProvider` | 纯 OpenAI（gpt-4o / o1 / o3） |
+| `AnthropicProvider` | 纯 Anthropic（claude-3-5 / claude-3-opus） |
+| `LiteLLMProvider` | **推荐** — 100+ 提供商统一接口 |
+
+工厂统一入口：
+
+```python
+from app.foundation.llm import LLMProviderFactory
+
+provider = LLMProviderFactory.create(
+    "litellm",
+    model="deepseek/deepseek-chat",
+    api_key="sk-...",
+)
+resp = provider.chat([Message(role=MessageRole.USER, content="hi")])
+print(resp.content)
+```
+
+### 5.5 旧版（仅 OpenAI / Anthropic）
+
+如果不想装 litellm，仍可用旧 provider：
+
+```bash
+echo "DEFAULT_LLM_PROVIDER=openai" >> backend/.env
+echo "DEFAULT_LLM_MODEL=gpt-4o" >> backend/.env
+echo "OPENAI_API_KEY=sk-..." >> backend/.env
+# 或
+echo "DEFAULT_LLM_PROVIDER=anthropic" >> backend/.env
+echo "DEFAULT_LLM_MODEL=claude-3-5-sonnet-20241022" >> backend/.env
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> backend/.env
+```
 
 Provider 注册位置：`backend/app/foundation/llm/`。扩展方式参考 OpenHands 风格，新建 `xxx_provider.py` + 在 `__init__.py` 注册。
 

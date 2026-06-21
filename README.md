@@ -2,7 +2,7 @@
 
 > 多智能体可协同的全栈 Agent 开发系统 · 从自然语言需求到可运行应用
 
-[![Backend Tests](https://img.shields.io/badge/backend-54%2F54%20passing-brightgreen)](./backend/tests)
+[![Backend Tests](https://img.shields.io/badge/backend-67%2F67%20passing-brightgreen)](./backend/tests)
 [![Frontend Build](https://img.shields.io/badge/frontend-vite%20build%20%7C%200%20errors-blue)](./frontend)
 [![Coverage](https://img.shields.io/badge/coverage-70%25-yellow)](./docs/coverage.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](#)
@@ -122,7 +122,7 @@ SakuraAgentTeam/
 ## 🧪 测试
 
 ```bash
-# 后端（26 个测试，含完整 E2E workflow + deployment agent）
+# 后端（67 个测试，含 CLI + 5 个 connector 端点 + litellm 100+ 模型 + E2E workflow + deployment agent）
 cd backend && python3 -m pytest tests/ -v
 
 # 前端类型检查 + 构建
@@ -139,15 +139,33 @@ python3 scripts/verify_progress.py
 默认使用 **Mock Provider**（不调用真实 API）。要启用真模型：
 
 ```bash
-# 1. 编辑 backend/.env
-echo "OPENAI_API_KEY=sk-..." >> backend/.env
+# 1. 编辑 backend/.env（100+ 提供商任选，详见下面"支持哪些"）
+echo "OPENAI_API_KEY=sk-..." >> backend/.env            # OpenAI
+# 或
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> backend/.env    # Anthropic
+# 或
+echo "DEEPSEEK_API_KEY=sk-..." >> backend/.env         # DeepSeek
+# 或
+echo "DASHSCOPE_API_KEY=sk-..." >> backend/.env        # 阿里 Qwen
+# 或
+echo "ZHIPUAI_API_KEY=..." >> backend/.env             # 智谱 GLM
 
 # 2. 验证接入（不消耗 token）
 cd backend && python3 scripts/llm_connect_check.py
 # 退出码 0 = 就绪，1 = 未配置，2 = 加载失败
 ```
 
-支持：OpenAI / Anthropic。详细：[docs/usage.md § 6](./docs/usage.md#6-llm-provider-配置)
+**支持的 100+ 提供商**（通过 [litellm](https://docs.litellm.ai/docs/providers) 统一接口）：
+
+| 协议 | 云平台 | 国产 | 主流第三方 | 本地 |
+|------|--------|------|-----------|------|
+| OpenAI · Anthropic | AWS Bedrock · Vertex AI · Azure | DeepSeek · Qwen(DashScope) · Zhipu GLM · Moonshot Kimi · Yi · Volcengine · Hunyuan · Qianfan | Gemini · Mistral · Cohere · Groq · Together · OpenRouter · Fireworks · DeepInfra | Ollama · vLLM · 任意 OpenAI 兼容端点 |
+
+切换 provider：在 `backend/.env` 设 `DEFAULT_LLM_PROVIDER=litellm` + `DEFAULT_LLM_MODEL=openai/gpt-4o`（或 `anthropic/claude-3-5-sonnet-20241022` / `deepseek/deepseek-chat` / `ollama/llama3` 等）。
+
+CLI 查询：`python3 -m cli providers`（24 常用）· `python3 -m cli providers --full`（2784 全量）。
+
+详细：[docs/usage.md § 6](./docs/usage.md#6-llm-provider-配置)
 
 ## 📚 文档
 
