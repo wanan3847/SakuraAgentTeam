@@ -6,12 +6,12 @@
 
 ## 目录
 
-1. [pip 安装](#1-pip-安装)
-2. [源码安装](#2-源码安装)
-3. [macOS 安装包](#3-macos-安装包)
-4. [Windows 安装包](#4-windows-安装包)
-5. [Docker 安装](#5-docker-安装)
-6. [VS Code 插件安装](#6-vs-code-插件安装)
+1. [一键脚本(推荐)](#1-一键脚本推荐)
+2. [pip 安装(CLI)](#2-pip-安装cli)
+3. [源码安装](#3-源码安装)
+4. [Docker 安装](#4-docker-安装)
+5. [VS Code 插件安装](#5-vs-code-插件安装)
+6. [桌面应用(开发中)](#6-桌面应用开发中)
 
 ---
 
@@ -26,55 +26,76 @@
 
 ---
 
-## 1. pip 安装
+## 1. 一键脚本(推荐)
 
-最简单的方式，一行命令搞定：
+适合绝大多数用户,自动检查依赖、克隆代码、安装前后端依赖、生成 .env。
+
+**macOS / Linux (curl):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.sh | bash
+```
+
+**macOS / Linux (wget):**
+
+```bash
+wget -qO- https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.ps1 | iex
+```
+
+**或先克隆再执行:**
+
+```bash
+git clone https://github.com/wanan3847/SakuraAgentTeam.git
+cd SakuraAgentTeam
+./scripts/install.sh        # macOS / Linux
+.\scripts\install.ps1      # Windows PowerShell
+```
+
+脚本完成后:
+- 后端 Python venv 在 `backend/.venv/`
+- 前端 node_modules 在 `frontend/node_modules/`
+- `backend/.env` 已生成随机 `SECRET_KEY`,需手动填 `OPENAI_API_KEY`
+- 启动:`./deploy.sh dev`
+
+---
+
+## 2. pip 安装(CLI)
+
+仅安装命令行客户端,适合只需要 CLI 的用户:
 
 ```bash
 pip install sakura-agent-team
 ```
 
-安装后即可使用 `sakura` 命令行工具：
+安装后即可使用 `sakura` 命令行工具:
 
 ```bash
 sakura version
 sakura config set --api-url http://localhost:8000
 ```
 
-> pip 包目前包含 CLI 客户端。后端服务仍需从源码启动（见下方源码安装）。
+> pip 包只含 CLI 客户端。后端 / 前端服务仍需从源码启动(见下方源码安装)。
 
 ---
 
-## 2. 源码安装
+## 3. 源码安装
 
 适合开发者和需要自定义配置的用户。
 
-### 2.1 克隆仓库
+### 3.1 克隆仓库
 
 ```bash
 git clone https://github.com/wanan3847/SakuraAgentTeam.git
 cd SakuraAgentTeam
 ```
 
-### 2.2 一键脚本（推荐）
-
-**macOS / Linux：**
-
-```bash
-./scripts/install.sh
-```
-
-**Windows (PowerShell)：**
-
-```powershell
-.\scripts\install.ps1
-```
-
-脚本会自动创建虚拟环境、安装前后端依赖。
-
-### 2.3 手动安装
-
-**后端：**
+### 3.2 手动安装后端
 
 ```bash
 cd backend
@@ -84,17 +105,17 @@ pip install -r requirements.txt
 cp .env.example .env         # 填入 LLM API Key
 ```
 
-**前端：**
+### 3.3 手动安装前端
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 2.4 启动
+### 3.4 启动
 
 ```bash
-# 一键启动（推荐）
+# 一键启动(推荐)
 ./deploy.sh dev
 
 # 或分别启动
@@ -106,42 +127,16 @@ cd frontend && npm run dev
 
 ---
 
-## 3. macOS 安装包
-
-下载 macOS 安装包（.dmg）：
-
-1. 前往 [GitHub Releases](https://github.com/wanan3847/SakuraAgentTeam/releases)。
-2. 下载 `SakuraAgentTeam-x.x.x.dmg`。
-3. 双击打开，拖入「应用程序」文件夹。
-4. 首次打开时右键 → 「打开」（绕过 Gatekeeper）。
-
-> macOS 安装包内置后端服务，无需额外安装 Python。
-
----
-
-## 4. Windows 安装包
-
-下载 Windows 安装包（.exe）：
-
-1. 前往 [GitHub Releases](https://github.com/wanan3847/SakuraAgentTeam/releases)。
-2. 下载 `SakuraAgentTeam-Setup-x.x.x.exe`。
-3. 双击运行安装程序。
-4. 安装完成后从开始菜单启动。
-
-> Windows 安装包内置后端服务，无需额外安装 Python。
-
----
-
-## 5. Docker 安装
+## 4. Docker 安装
 
 适合服务器部署和容器化环境。
 
-### 5.1 前置要求
+### 4.1 前置要求
 
 - Docker ≥ 24
 - Docker Compose ≥ 2
 
-### 5.2 启动
+### 4.2 启动
 
 ```bash
 git clone https://github.com/wanan3847/SakuraAgentTeam.git
@@ -152,18 +147,18 @@ cp backend/.env.example backend/.env   # 填入 LLM API Key
 ./deploy.sh prod
 ```
 
-或手动：
+或手动:
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d --build
 ```
 
-### 5.3 访问
+### 4.3 访问
 
-- 前端：<http://localhost:8080>
-- 后端 API：<http://localhost:8000/docs>
+- 前端:<http://localhost:8080>
+- 后端 API:<http://localhost:8000/docs>
 
-### 5.4 管理命令
+### 4.4 管理命令
 
 ```bash
 ./deploy.sh stop     # 停止
@@ -173,11 +168,11 @@ docker compose -f infra/docker-compose.yml up -d --build
 
 ---
 
-## 6. VS Code 插件安装
+## 5. VS Code 插件安装
 
 在 VS Code 中直接使用樱花小队。
 
-### 6.1 从 VSIX 安装
+### 5.1 从 VSIX 安装
 
 ```bash
 cd vscode-extension
@@ -185,21 +180,21 @@ npm install
 npm run package    # 生成 sakura-agent-team-0.1.0.vsix
 ```
 
-在 VS Code 中：
+在 VS Code 中:
 
 ```
 扩展面板 → ⋯ → 从 VSIX 安装 → 选择 .vsix 文件
 ```
 
-或命令行：
+或命令行:
 
 ```bash
 code --install-extension sakura-agent-team-0.1.0.vsix
 ```
 
-### 6.2 配置
+### 5.2 配置
 
-在 VS Code 设置中搜索 `樱花小队`：
+在 VS Code 设置中搜索 `樱花小队`:
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
@@ -207,6 +202,21 @@ code --install-extension sakura-agent-team-0.1.0.vsix
 | `sakura.token` | `""` | JWT 登录 Token |
 
 > 详细使用说明见 [VSCODE_EXTENSION.md](./VSCODE_EXTENSION.md)。
+
+---
+
+## 6. 桌面应用(开发中)
+
+桌面应用基于 Electron,目前 macOS / Windows / Linux 安装包(.dmg / .exe / AppImage)**尚未发布**。
+源码在 `desktop/`,打包脚本在 `packaging/`,可自行构建:
+
+```bash
+cd desktop
+npm install
+npm run build   # 生成平台对应安装包
+```
+
+> 等正式版发布后会通过 GitHub Releases 提供 dmg / exe / AppImage 下载。
 
 ---
 

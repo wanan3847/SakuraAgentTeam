@@ -241,11 +241,12 @@ function BuiltinProvidersTab({
       {/* 搜索 + 筛选 */}
       <div className="flex flex-wrap gap-3 mb-6">
         <input
-          type="text"
+          type="search"
           name="provider-search"
           id="provider-search"
           autoComplete="off"
           data-form-type="other"
+          data-lpignore="true"
           spellCheck={false}
           placeholder="搜索厂商名 / ID / 模型…"
           value={search}
@@ -520,8 +521,9 @@ function ProviderCard({
                 type="password"
                 name="provider-apikey"
                 id="provider-apikey"
-                autoComplete="off"
+                autoComplete="new-password"
                 data-form-type="other"
+                data-lpignore="true"
                 spellCheck={false}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -546,6 +548,12 @@ function ProviderCard({
             </label>
             <input
               type="text"
+              name="provider-model"
+              id="provider-model"
+              autoComplete="off"
+              data-form-type="other"
+              data-lpignore="true"
+              spellCheck={false}
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="模型名"
@@ -716,6 +724,12 @@ function CustomEndpointTab({
           </label>
           <input
             type="text"
+            name="llm-display-name"
+            id="llm-display-name"
+            autoComplete="off"
+            data-form-type="other"
+            data-lpignore="true"
+            spellCheck={false}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="我的本地模型"
@@ -752,6 +766,12 @@ function CustomEndpointTab({
           </label>
           <input
             type="password"
+            name="llm-api-key"
+            id="llm-api-key"
+            autoComplete="new-password"
+            data-form-type="other"
+            data-lpignore="true"
+            spellCheck={false}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-..."
@@ -791,6 +811,12 @@ function CustomEndpointTab({
           ) : (
             <input
               type="text"
+              name="llm-model-name"
+              id="llm-model-name"
+              autoComplete="off"
+              data-form-type="other"
+              data-lpignore="true"
+              spellCheck={false}
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="手动输入模型名"

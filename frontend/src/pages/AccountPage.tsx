@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Mail, Lock, User, Shield, Calendar, Loader2, CheckCircle2,
-  LogIn, Sparkles, MessageSquare, Inbox, UserCircle,
+  LogIn, Sparkles, MessageSquare, Inbox, UserCircle, Upload, Image as ImageIcon,
 } from 'lucide-react'
 import SakuraPetals from '../components/SakuraPetals'
 import { useAuth } from '../contexts/AuthContext'
-import { updateMe, changePassword, fetchMyStats, UserInfo } from '../lib/authApi'
+import {
+  updateMe, changePassword, fetchMyStats, uploadAvatar, UserInfo,
+} from '../lib/authApi'
 
 const AVATAR_COLORS = ['#C97B8A', '#6B8E6B', '#C4955E', '#8C4A57', '#6B655C', '#4A4540', '#B56B6B', '#9A5A68']
 
@@ -22,8 +24,10 @@ export default function AccountPage() {
   const [savingAvatar, setSavingAvatar] = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
   const [savingPwd, setSavingPwd] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [stats, setStats] = useState<{ conversations?: number; submissions?: number; [k: string]: any }>({})
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -127,6 +131,44 @@ export default function AccountPage() {
     }
   }
 
+  const handleUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // 前端预校验
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      setMsg({ type: 'error', text: `不支持的图片格式: ${file.type}` })
+      e.target.value = ''
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setMsg({ type: 'error', text: `图片过大: ${(file.size / 1024 / 1024).toFixed(2)}MB (最大 2MB)` })
+      e.target.value = ''
+      return
+    }
+    setUploadingAvatar(true)
+    setMsg(null)
+    try {
+      const r = await uploadAvatar(token, file)
+      if (r.success) {
+        setAvatar(r.avatar)
+        setMsg({ type: 'success', text: r.message || '头像上传成功' })
+        // 刷新 AuthContext 里的 user(通过 reload 或 updateMe)
+        if (r.user) {
+          // 触发 useAuth 重新拉取 user 信息
+          window.location.reload()
+        }
+      } else {
+        setMsg({ type: 'error', text: r.error || r.message || '上传失败' })
+      }
+    } catch (e: any) {
+      setMsg({ type: 'error', text: e.message || '网络错误' })
+    } finally {
+      setUploadingAvatar(false)
+      e.target.value = ''
+    }
+  }
+
   return (
     <div className="aurora-bg min-h-screen relative">
       <SakuraPetals count={4} />
@@ -165,8 +207,50 @@ export default function AccountPage() {
 
         {/* 修改头像 */}
         <div className="glass rounded-xl p-6 animate-fade-up">
-          <SectionHeader icon={<Sparkles className="w-4 h-4" />} title="修改头像" desc="选择一个颜色作为你的头像标识" />
-          <div className="grid grid-cols-8 gap-2 mt-4">
+          <SectionHeader icon={<Sparkles className="w-4 h-4" />} title="修改头像" desc="上传图片或选择一个颜色作为头像" />
+
+          {/* 上传图片 */}
+          <div className="mt-4 flex items-center gap-4">
+            {/* 预览 */}
+            <div className="w-16 h-16 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 border border-border bg-bg-subtle">
+              {avatar.startsWith('data:') || avatar.startsWith('http') ? (
+                <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+              ) : avatar.startsWith('#') ? (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: avatar }}>
+                  <UserCircle className="w-6 h-6 text-surface" strokeWidth={1.5} />
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl">{avatar}</div>
+              )}
+            </div>
+            <div className="flex-1">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleUploadAvatar}
+                className="hidden"
+                name="avatar-upload"
+                id="avatar-upload"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="px-4 py-2 rounded-md border border-border text-xs font-medium hover:bg-bg-subtle disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {uploadingAvatar ? '上传中…' : '上传图片'}
+              </button>
+              <p className="text-[11px] text-ink-faint mt-1.5 font-mono">PNG / JPEG / WebP / GIF,最大 2MB</p>
+            </div>
+          </div>
+
+          {/* 分隔线 */}
+          <div className="mt-4 mb-3 border-t border-border" />
+
+          {/* 颜色选择 */}
+          <p className="text-xs text-ink-faint font-mono mb-2">或选择颜色：</p>
+          <div className="grid grid-cols-8 gap-2">
             {AVATAR_COLORS.map((c) => (
               <button
                 key={c}
@@ -179,8 +263,16 @@ export default function AccountPage() {
           </div>
           <div className="mt-4 flex items-center gap-3">
             <div className="text-xs text-ink-faint">当前：</div>
-            <div className="w-10 h-10 rounded-md flex items-center justify-center text-surface flex-shrink-0" style={{ backgroundColor: avatar }}>
-              <UserCircle className="w-5 h-5" strokeWidth={1.5} />
+            <div className="w-10 h-10 rounded-md overflow-hidden flex items-center justify-center text-surface flex-shrink-0 border border-border">
+              {avatar.startsWith('data:') || avatar.startsWith('http') ? (
+                <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+              ) : avatar.startsWith('#') ? (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: avatar }}>
+                  <UserCircle className="w-5 h-5" strokeWidth={1.5} />
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xl">{avatar}</div>
+              )}
             </div>
             <button
               onClick={handleSaveAvatar}
@@ -296,11 +388,20 @@ function PwdInput({ placeholder, value, onChange }: { placeholder: string; value
 function UserCard({ user }: { user: UserInfo }) {
   const roleLabel = user.role === 'admin' ? '管理员' : '普通用户'
   const roleColor = user.role === 'admin' ? '#8C4A57' : '#6B655C'
+  const avatar = user.avatar || '#C97B8A'
   return (
     <div className="glass rounded-xl p-6 animate-fade-up">
       <div className="flex items-center gap-4">
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-mono font-semibold text-surface flex-shrink-0" style={{ backgroundColor: user.avatar || '#C97B8A' }}>
-          {user.username.charAt(0).toUpperCase()}
+        <div className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center text-3xl font-mono font-semibold text-surface flex-shrink-0 border border-border">
+          {avatar.startsWith('data:') || avatar.startsWith('http') ? (
+            <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+          ) : avatar.startsWith('#') ? (
+            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: avatar }}>
+              {user.username.charAt(0).toUpperCase()}
+            </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-4xl">{avatar}</div>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

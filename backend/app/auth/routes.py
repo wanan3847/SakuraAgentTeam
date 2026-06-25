@@ -1,6 +1,11 @@
-"""Auth API routes — register / login / me / change-password / stats."""
+"""Auth API routes — register / login / me / change-password / stats / avatar."""
 
-from fastapi import APIRouter, Depends, Request
+import base64
+import os
+import time
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Request, UploadFile, File
 from passlib.context import CryptContext
 from sqlalchemy import func, or_, select
 
@@ -13,6 +18,12 @@ from app.submissions.models import AgentSubmission
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# 头像上传目录
+AVATAR_DIR = Path("data/avatars")
+AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+MAX_AVATAR_SIZE = 2 * 1024 * 1024  # 2MB
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 
 
 def _user_to_dict(user: User) -> dict:
@@ -197,3 +208,67 @@ async def user_stats(user: User = Depends(get_current_user)):
                 },
             },
         }
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """上传用户头像图片。
+
+    接收 multipart/form-data,字段名 ``file``。
+    限制:2MB,PNG/JPEG/WebP/GIF。
+    存储:data/avatars/{user_id}_{timestamp}.{ext}
+    返回:data: URL,前端直接 <img src> 显示。
+    """
+    # 校验文件类型
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        return {
+            "success": False,
+            "error": f"unsupported image type: {content_type}. allowed: {', '.join(sorted(ALLOWED_IMAGE_TYPES))}",
+        }
+
+    # 读内容 + 校验大小
+    raw = await file.read()
+    if len(raw) > MAX_AVATAR_SIZE:
+        return {
+            "success": False,
+            "error": f"avatar too large: {len(raw)} bytes (max {MAX_AVATAR_SIZE} bytes = 2MB)",
+        }
+
+    # 生成文件名 user_id_timestamp.ext
+    ext_map = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+        "image/gif": "gif",
+    }
+    ext = ext_map.get(content_type, "png")
+    filename = f"{user.id}_{int(time.time())}.{ext}"
+    filepath = AVATAR_DIR / filename
+
+    # 写入磁盘
+    filepath.write_bytes(raw)
+
+    # 生成 data: URL 存到数据库(前端直接用,不用走 /static)
+    b64 = base64.b64encode(raw).decode("ascii")
+    data_url = f"data:{content_type};base64,{b64}"
+
+    # 更新数据库
+    async with async_session() as session:
+        result = await session.execute(select(User).where(User.id == user.id))
+        db_user = result.scalar_one_or_none()
+        if db_user is None:
+            return {"success": False, "error": "user not found"}
+        db_user.avatar = data_url
+        await session.commit()
+        await session.refresh(db_user)
+
+    return {
+        "success": True,
+        "avatar": data_url,
+        "user": _user_to_dict(db_user),
+        "message": f"头像已更新({len(raw)} bytes, {content_type})",
+    }
