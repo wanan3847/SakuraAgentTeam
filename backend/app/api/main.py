@@ -37,6 +37,12 @@ app = FastAPI(
 
 from app.api.connectors import router as connectors_router  # noqa: E402, F401
 from app.api.routes import router as api_router  # noqa: E402
+from app.api.teams import router as teams_router  # noqa: E402
+from app.auth.routes import router as auth_router  # noqa: E402
+from app.auth.database import init_db  # noqa: E402
+from app.history.routes import router as history_router  # noqa: E402
+from app.llm_providers.routes import router as llm_router  # noqa: E402
+from app.submissions.routes import router as submissions_router  # noqa: E402
 
 # CORS middleware - allow all for development
 app.add_middleware(
@@ -49,6 +55,17 @@ app.add_middleware(
 
 app.include_router(api_router)
 app.include_router(connectors_router)
+app.include_router(teams_router)
+app.include_router(auth_router)
+app.include_router(history_router)
+app.include_router(submissions_router)
+app.include_router(llm_router)
+
+
+@app.on_event("startup")
+async def _startup():
+    """Initialize database tables on startup."""
+    await init_db()
 
 
 @app.get("/health")

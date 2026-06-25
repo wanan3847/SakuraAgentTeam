@@ -4,6 +4,10 @@
   api_url = "http://localhost:8000"
   default_workflow = None  # 让后端自动选
   output_format = "table"  # table | json
+
+扩展字段（LLM 供应商 / 默认团队 / 用户 token）：
+  llm_provider / llm_api_key / llm_api_base / llm_model
+  default_team / username
 """
 
 from __future__ import annotations
@@ -29,6 +33,15 @@ class Config:
     api_token: str = ""
     default_workflow: str = ""  # 空 = 让后端自动选
     output_format: str = "table"  # table | json
+    # LLM 供应商配置（sakura config set-llm 写入）
+    llm_provider: str = ""  # openai / anthropic / litellm / deepseek …
+    llm_api_key: str = ""
+    llm_api_base: str = ""
+    llm_model: str = ""
+    # 默认团队（#team_id 切换 / chat 默认）
+    default_team: str = ""
+    # 登录用户名（sakura login 写入）
+    username: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v != "" or k in ("api_url",)}

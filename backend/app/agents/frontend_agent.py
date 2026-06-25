@@ -32,29 +32,44 @@ class FrontendAgent(Agent):
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
-        """Generate frontend code based on PRD/design."""
+        """Generate frontend code based on PRD/design.
+
+        有 LLM provider 时调用 LLM 生成前端代码；
+        无 LLM 或 LLM 调用失败时回退到模板逻辑。
+        """
         logger.info("frontend_agent_execute", session_id=ctx.session_id)
 
         # Get features from design or requirements agent
         features = self._extract_features(ctx)
 
-        # Generate all frontend files
-        app_tsx = self._generate_app_tsx(features)
-        api_ts = self._generate_api_ts(features)
-        pages_tsx = self._generate_pages(features)
-        main_tsx = self._generate_main_tsx()
-        index_css = self._generate_index_css()
+        # 优先使用 LLM 生成前端代码
+        files_map: dict[str, str] | None = None
+        if self.llm is not None:
+            try:
+                files_map = await self._generate_with_llm(features, ctx)
+            except Exception as exc:
+                logger.warning(
+                    "frontend_agent_llm_fallback",
+                    error=str(exc),
+                )
+                files_map = None
 
-        # Combine into a single artifact (multiple files represented in content)
+        # 无 LLM 或 LLM 失败时使用模板
+        if files_map is None:
+            files_map = {
+                "frontend/src/main.tsx": self._generate_main_tsx(),
+                "frontend/src/App.tsx": self._generate_app_tsx(features),
+                "frontend/src/api.ts": self._generate_api_ts(features),
+                "frontend/src/pages.tsx": self._generate_pages(features),
+                "frontend/src/index.css": self._generate_index_css(),
+            }
+
+        # 构造 artifact 内容
         content_parts = []
-        for name, code in [
-            ("frontend/src/main.tsx", main_tsx),
-            ("frontend/src/App.tsx", app_tsx),
-            ("frontend/src/api.ts", api_ts),
-            ("frontend/src/pages.tsx", pages_tsx),
-            ("frontend/src/index.css", index_css),
-        ]:
+        files_list = []
+        for name, code in files_map.items():
             content_parts.append(f"--- {name} ---\n\n{code}\n\n")
+            files_list.append({"path": name, "content": code})
 
         combined = "\n".join(content_parts)
 
@@ -64,20 +79,96 @@ class FrontendAgent(Agent):
             name="frontend_code",
             content=combined,
             metadata={
-                "files_generated": 5,
+                "files_generated": len(files_list),
                 "features": [f["title"] for f in features],
-                "files": [
-                    {"path": "frontend/src/main.tsx", "content": main_tsx},
-                    {"path": "frontend/src/App.tsx", "content": app_tsx},
-                    {"path": "frontend/src/api.ts", "content": api_ts},
-                    {"path": "frontend/src/pages.tsx", "content": pages_tsx},
-                    {"path": "frontend/src/index.css", "content": index_css},
-                ],
+                "files": files_list,
             },
         )
 
         logger.info("frontend_agent_done", session_id=ctx.session_id)
         return artifact
+
+    async def _generate_with_llm(
+        self, features: list[dict], ctx: Context
+    ) -> dict[str, str]:
+        """使用 LLM 生成前端 4 个核心代码文件。
+
+        返回 {file_path: content}。解析失败或文件不足时抛异常触发回退。
+        """
+        features_desc = "\n".join(
+            f"- {f['title']}: {f.get('description', '')}" for f in features
+        )
+
+        # 读取前序 Agent 的 PRD 作为上下文
+        prd_content = ""
+        req_output = ctx.get_output(AgentRole.REQUIREMENTS.value)
+        if req_output and hasattr(req_output, "content"):
+            prd_content = req_output.content
+
+        prompt = f"""你是 React 前端专家。请根据需求和功能列表生成完整的前端代码。
+
+## 用户需求
+{ctx.user_requirement}
+
+## 功能列表
+{features_desc}
+
+## PRD 文档（节选）
+{prd_content[:2000] if prd_content else "无"}
+
+## 输出要求
+生成以下 4 个文件，每个文件严格使用如下格式输出：
+
+### FILE: frontend/src/App.tsx
+```tsx
+// 代码内容
+```
+
+### FILE: frontend/index.html
+```html
+<!-- 代码内容 -->
+```
+
+### FILE: frontend/package.json
+```json
+// 代码内容
+```
+
+### FILE: frontend/vite.config.ts
+```typescript
+// 代码内容
+```
+
+代码要求：
+- frontend/src/App.tsx: React 18 + TypeScript + Tailwind CSS 主应用组件，
+  使用 react-router-dom 路由，包含顶部导航栏，为每个功能生成对应的页面路由和组件，
+  支持深色模式样式（dark: 前缀）
+- frontend/index.html: Vite 入口 HTML，引入 /src/main.tsx，设置 root div
+- frontend/package.json: 包含 react、react-dom、react-router-dom、typescript、
+  tailwindcss、vite、@vitejs/plugin-react 等依赖，scripts 包含 dev/build/preview
+- frontend/vite.config.ts: Vite 配置，启用 React 插件，
+  配置 server.proxy 将 /api 请求转发到 http://localhost:8000
+- 代码要能直接 npm install && npm run dev 运行
+"""
+        response = await self.run_agentic_loop(
+            prompt=prompt,
+            ctx=ctx,
+            system_prompt=self.build_system_prompt(ctx),
+        )
+        files_map = self.parse_files_block(response)
+
+        # 校验必需的 4 个文件是否都生成了
+        required = [
+            "frontend/src/App.tsx",
+            "frontend/index.html",
+            "frontend/package.json",
+            "frontend/vite.config.ts",
+        ]
+        missing = [f for f in required if f not in files_map or not files_map[f].strip()]
+        if missing:
+            raise ValueError(f"LLM 生成的前端文件不完整，缺少: {missing}")
+
+        return files_map
 
     def _extract_features(self, ctx: Context) -> list[dict]:
         """Extract features from context (PRD or design agent)."""

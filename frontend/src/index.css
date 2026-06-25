@@ -1,30 +1,317 @@
+/* ============================================================
+ * SakuraAgentTeam 设计系统 — 🌸 高级感（轻、柔、有温度、艺术感）
+ *
+ * 设计原则（借鉴 opendesign / anti-ai-slop）：
+ * - 60-30-10 色彩比例：60% 背景 / 30% 表面 / 10% 强调
+ * - OKLCh 启发的感知均匀暖色调（纸感白 + 暖墨 + 柔粉）
+ * - 最多 3 种字体：Fraunces（标题）/ Noto Sans SC（正文）/ JetBrains Mono（代码）
+ * - 8px 栅格，大量留白
+ * - 不用渐变背景、玻璃态、极光、发光阴影（这些都是 AI 味）
+ * - 用排版层级和字重对比建立视觉层次，而非花哨效果
+ * ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
+/* ===== 设计令牌（CSS 变量） ===== */
+:root {
+  /* 背景层（60%）— 暖纸感白 */
+  --bg: #FAF8F5;
+  --bg-subtle: #F5F2EC;
+
+  /* 表面层（30%）— 纯白卡片 */
+  --surface: #FFFFFF;
+  --surface-hover: #FCFAF7;
+
+  /* 边框 — 暖浅灰 */
+  --border: #E8E4DD;
+  --border-strong: #D8D3CA;
+
+  /* 文字 — 暖墨色系 */
+  --ink: #1A1715;
+  --ink-soft: #4A4540;
+  --ink-muted: #6B655C;
+  --ink-faint: #A8A299;
+
+  /* 强调色（10%）— 柔粉（不是亮粉） */
+  --accent: #C97B8A;
+  --accent-hover: #B56B7A;
+  --accent-soft: #F5E6E9;
+  --accent-ink: #8C4A57;
+
+  /* 语义色 — 柔和 */
+  --success: #6B8E6B;
+  --success-soft: #EBF0EB;
+  --warning: #C4955E;
+  --warning-soft: #F5EDE2;
+  --danger: #B56B6B;
+  --danger-soft: #F5EAEA;
+
+  /* 阴影 — 真实柔和，不发光 */
+  --shadow-sm: 0 1px 2px rgba(26, 23, 21, 0.04);
+  --shadow-md: 0 1px 3px rgba(26, 23, 21, 0.06), 0 4px 12px -2px rgba(26, 23, 21, 0.04);
+  --shadow-lg: 0 2px 8px rgba(26, 23, 21, 0.06), 0 12px 32px -4px rgba(26, 23, 21, 0.08);
+
+  /* 字体 */
+  --font-display: 'Fraunces', 'Noto Serif SC', Georgia, serif;
+  --font-body: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
 
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ===== 排版基础 ===== */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+code, pre, .font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'liga' 0;
 }
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+
+/* ===== 页面背景 — 纯净暖白，不用极光 ===== */
+.aurora-bg {
+  background: var(--bg);
+}
+
+/* ===== 卡片 — 实色 + 细边框，不用玻璃态 ===== */
+.glass {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.glass:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: none;
+}
+
+.glass-dark {
+  background: var(--ink);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--ink-soft);
+}
+
+/* ===== 强调 — 不用渐变文字，用字重和颜色 ===== */
+.gradient-text {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  -webkit-text-fill-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ===== 樱花飘落 — 纯 CSS 圆点（不用 emoji 避免黑块） ===== */
+.petal-dot {
+  position: fixed;
+  top: -12px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  animation: petalFall 18s linear infinite;
+  will-change: transform;
+  filter: blur(0.3px);
+}
+@keyframes petalFall {
+  0%   { transform: translateY(-8vh)  rotate(0deg)   translateX(0); }
+  25%  { transform: translateY(20vh)  rotate(90deg)  translateX(20px); }
+  50%  { transform: translateY(50vh)  rotate(180deg) translateX(-15px); }
+  75%  { transform: translateY(80vh)  rotate(270deg) translateX(25px); }
+  100% { transform: translateY(110vh) rotate(360deg) translateX(-10px); }
+}
+
+@supports not (filter: blur(0.3px)) {
+  .petal-dot { filter: none; }
+}
+
+/* ===== 按钮 — 实色，不用渐变 ===== */
+.btn-gradient {
+  background: var(--ink);
+  color: var(--surface);
+  transition: background 0.2s ease, transform 0.1s ease;
+  box-shadow: none;
+}
+.btn-gradient:hover {
+  background: var(--ink-soft);
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+.btn-gradient:active {
+  transform: translateY(0);
+}
+
+/* ===== 滚动条 — 柔和 ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+
+/* ===== 打字指示器 ===== */
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+.typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-muted);
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ===== Shimmer 加载效果 — 柔和 ===== */
+.shimmer {
+  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 50%, var(--bg-subtle) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ===== 消息内容 ===== */
+.msg-content {
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg-content code {
+  background: var(--bg-subtle);
+  color: var(--ink-soft);
+  padding: 2px 6px;
   border-radius: 4px;
+  font-size: 0.9em;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+.msg-content pre {
+  background: var(--ink);
+  color: #E8E4DD;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.875em;
+}
+.msg-content pre code {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+}
+
+/* ===== 选中态 — 柔和描边，不发光 ===== */
+.selected-ring {
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+  border-color: var(--accent);
+}
+
+/* ===== 纸感纹理 — 极淡，增加质感 ===== */
+.paper-texture {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(26, 23, 21, 0.015) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* ===== 分隔线 — 柔和 ===== */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ===== 标签 / 徽章 — 统一无 emoji ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--ink-muted);
+}
+.badge-success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success-soft);
+}
+.badge-accent {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: var(--accent-soft);
+}
+
+/* ===== 输入框 — 统一细边框 ===== */
+input, textarea, select {
+  font-family: var(--font-body);
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--ink-muted);
+  box-shadow: 0 0 0 1px var(--ink-muted);
+}
+
+/* ===== 链接 — 柔和下划线 ===== */
+a {
+  color: var(--ink);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+a:hover {
+  color: var(--accent-ink);
+}
+
+/* ===== 编号徽章（借鉴高级感排版） ===== */
+.num-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  letter-spacing: 0.05em;
+}
+
+/* ===== Fade Up 进场动画（列表/卡片用）===== */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeUp 0.5s ease-out both;
+  will-change: opacity, transform;
 }

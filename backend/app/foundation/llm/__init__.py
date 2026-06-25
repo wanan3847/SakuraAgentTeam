@@ -13,6 +13,7 @@ from app.foundation.llm.base import (
     LLMResponse,
     Message,
     MessageRole,
+    ToolCall,
 )
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "LLMResponse",
     "Message",
     "MessageRole",
+    "ToolCall",
     "OpenAIProvider",
     "AnthropicProvider",
     "LiteLLMProvider",

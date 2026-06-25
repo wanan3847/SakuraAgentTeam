@@ -19,7 +19,10 @@ class Settings(BaseSettings):
 
     # LLM Providers
     openai_api_key: str | None = None
+    openai_api_base: str | None = None  # 支持 OpenAI 兼容中转站
     anthropic_api_key: str | None = None
+    dashscope_api_key: str | None = None
+    dashscope_api_base: str | None = None
     default_llm_provider: str = "openai"
     default_llm_model: str = "gpt-4o"
 

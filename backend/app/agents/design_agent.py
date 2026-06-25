@@ -43,7 +43,11 @@ class DesignAgent(Agent):
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
-        """Generate architecture, API contract, and database schema."""
+        """Generate architecture, API contract, and database schema.
+
+        有 LLM provider 时调用 LLM 生成针对项目的设计文档；
+        无 LLM 或 LLM 调用失败时回退到模板逻辑。
+        """
         logger.info("design_agent_execute", session_id=ctx.session_id)
 
         requirement = ctx.user_requirement
@@ -54,17 +58,34 @@ class DesignAgent(Agent):
         if prd_output and hasattr(prd_output, "metadata"):
             features = prd_output.metadata.get("features", [])
 
-        # Generate architecture document
-        architecture_doc = self._generate_architecture(requirement, features)
+        # 优先使用 LLM 生成针对项目的设计文档
+        llm_result: dict | None = None
+        if self.llm is not None:
+            try:
+                llm_result = await self._generate_with_llm(requirement, features, ctx)
+            except Exception as exc:
+                logger.warning("design_agent_llm_fallback", error=str(exc))
+                llm_result = None
 
-        # Generate API specification
-        api_doc = self._generate_api(features)
+        if llm_result is not None:
+            architecture_doc = llm_result["architecture"]
+            api_doc = llm_result["api"]
+            db_doc = llm_result["database"]
+        else:
+            # Generate architecture document
+            architecture_doc = self._generate_architecture(requirement, features)
 
-        # Generate database schema
-        db_doc = self._generate_database(features)
+            # Generate API specification
+            api_doc = self._generate_api(features)
+
+            # Generate database schema
+            db_doc = self._generate_database(features)
 
         # Combine into a single artifact
         combined = f"{architecture_doc}\n\n---\n\n{api_doc}\n\n---\n\n{db_doc}"
+
+        api_routes = self._extract_api_routes(features)
+        db_tables = self._extract_tables(features)
 
         artifact = Artifact(
             agent_role=self.role.value,
@@ -73,8 +94,8 @@ class DesignAgent(Agent):
             content=combined,
             metadata={
                 "features_count": len(features),
-                "api_routes": self._extract_api_routes(features),
-                "db_tables": self._extract_tables(features),
+                "api_routes": api_routes,
+                "db_tables": db_tables,
                 "features": [f["title"] for f in features],
                 "files": [
                     {"path": "architecture.md", "content": architecture_doc},
@@ -84,8 +105,97 @@ class DesignAgent(Agent):
             },
         )
 
+        # 向 frontend 和 backend agent 发送 handoff 消息，
+        # 告知 API 契约和数据库表结构，便于后续协作
+        handoff_content = (
+            f"API 契约摘要:\n"
+            f"- 基础路径: /api/v1/\n"
+            f"- 路由: {', '.join(api_routes) if api_routes else '无'}\n"
+            f"- 数据库表: {', '.join(db_tables) if db_tables else '无'}\n"
+            f"- 统一响应格式: {{ success, data, error }}\n"
+            f"- 数据库表结构详见 design.md"
+        )
+        ctx.send_message(
+            from_role=self.role.value,
+            to_role=AgentRole.FRONTEND.value,
+            message_type="handoff",
+            content=handoff_content,
+            api_routes=api_routes,
+            db_tables=db_tables,
+        )
+        ctx.send_message(
+            from_role=self.role.value,
+            to_role=AgentRole.BACKEND.value,
+            message_type="handoff",
+            content=handoff_content,
+            api_routes=api_routes,
+            db_tables=db_tables,
+        )
+
         logger.info("design_agent_done", session_id=ctx.session_id)
         return artifact
+
+    async def _generate_with_llm(
+        self, requirement: str, features: list[dict], ctx: Context
+    ) -> dict:
+        """使用 LLM 生成针对项目的架构、API 契约、数据库设计。
+
+        返回 {"architecture": str, "api": str, "database": str}。
+        解析失败或字段缺失时抛异常触发回退。
+        """
+        features_desc = "\n".join(
+            f"- {f['title']}: {f.get('description', '')}" for f in features
+        )
+        prd_content = ""
+        req_output = ctx.get_output(AgentRole.REQUIREMENTS.value)
+        if req_output and hasattr(req_output, "content"):
+            prd_content = req_output.content
+
+        prompt = f"""你是资深系统架构师。请根据用户需求和功能列表，生成针对该项目的架构设计文档。
+
+## 用户需求
+{requirement}
+
+## 功能列表
+{features_desc if features_desc else "无"}
+
+## PRD 文档（节选）
+{prd_content[:2000] if prd_content else "无"}
+
+## 输出要求
+返回 JSON 对象，格式如下：
+```json
+{{
+  "architecture": "# System Architecture\\n\\n## 1. 总体架构\\n\\n(针对该项目的架构描述)\\n\\n## 2. 核心组件\\n\\n...",
+  "api": "# API Contract\\n\\n## API 端点\\n\\n...",
+  "database": "# Database Schema\\n\\n## 表结构\\n\\n..."
+}}
+```
+
+要求：
+- architecture: 针对该项目业务特点的架构描述，至少 800 字，包含总体架构、核心组件、技术栈、设计原则
+- api: 针对功能的 REST API 端点表（CRUD），统一响应格式 {{ success, data, error }}
+- database: 数据库表结构，每个表至少包含 id/title/status/created_at/updated_at 字段，
+  对每个字段标注类型、约束、说明
+- 只返回 JSON，不要其他文字
+"""
+        response = await self.run_agentic_loop(
+            prompt=prompt,
+            ctx=ctx,
+            system_prompt=self.build_system_prompt(ctx),
+        )
+        parsed = self.parse_json_response(response)
+        if not isinstance(parsed, dict):
+            raise ValueError("LLM 返回的不是 JSON 对象")
+        for key in ("architecture", "api", "database"):
+            val = parsed.get(key)
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError(f"LLM 返回的 {key} 字段为空或非字符串")
+        return {
+            "architecture": parsed["architecture"],
+            "api": parsed["api"],
+            "database": parsed["database"],
+        }
 
     def _generate_architecture(self, requirement: str, features: list[dict]) -> str:
         """Generate architecture document."""

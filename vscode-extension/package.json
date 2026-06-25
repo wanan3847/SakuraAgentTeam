@@ -1,0 +1,182 @@
+{
+  "name": "sakura-agent-team",
+  "displayName": "🌸 樱花小队",
+  "description": "AI 多智能体协作 — 在 VS Code 中召唤你的虚拟团队",
+  "version": "0.2.0",
+  "publisher": "wanan3847",
+  "license": "MIT",
+  "repository": "https://github.com/wanan3847/SakuraAgentTeam",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sakura.start",
+        "title": "🌸 樱花小队: 启动"
+      },
+      {
+        "command": "sakura.chat",
+        "title": "🌸 樱花小队: 对话"
+      },
+      {
+        "command": "sakura.selectTeam",
+        "title": "🌸 樱花小队: 选择团队"
+      },
+      {
+        "command": "sakura.openWeb",
+        "title": "🌸 樱花小队: 打开网页版"
+      },
+      {
+        "command": "sakura.refreshTeams",
+        "title": "🌸 樱花小队: 刷新团队"
+      },
+      {
+        "command": "sakura.refreshAgents",
+        "title": "🌸 樱花小队: 刷新专家"
+      },
+      {
+        "command": "sakura.llmProviders",
+        "title": "🌸 樱花小队: LLM 供应商"
+      },
+      {
+        "command": "sakura.llmTest",
+        "title": "🌸 樱花小队: 测试 LLM 连接"
+      },
+      {
+        "command": "sakura.llmSaveConfig",
+        "title": "🌸 樱花小队: 保存 LLM 配置"
+      },
+      {
+        "command": "sakura.llmConfigs",
+        "title": "🌸 樱花小队: 我的 LLM 配置"
+      },
+      {
+        "command": "sakura.llmRefreshProviders",
+        "title": "🌸 樱花小队: 刷新 LLM 供应商"
+      },
+      {
+        "command": "sakura.llmPanel",
+        "title": "🌸 樱花小队: LLM 管理面板"
+      },
+      {
+        "command": "sakura.llmFetchModels",
+        "title": "🌸 樱花小队: 拉取模型列表"
+      },
+      {
+        "command": "sakura.llmEnvCheck",
+        "title": "🌸 樱花小队: 环境变量检测"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sakura-sidebar",
+          "title": "樱花小队",
+          "icon": "sakura.svg"
+        }
+      ]
+    },
+    "views": {
+      "sakura-sidebar": [
+        {
+          "id": "sakura.teams",
+          "name": "团队"
+        },
+        {
+          "id": "sakura.agents",
+          "name": "专家"
+        },
+        {
+          "id": "sakura.llmProviders",
+          "name": "LLM 供应商"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "sakura.refreshTeams",
+          "when": "view == sakura.teams",
+          "group": "navigation"
+        },
+        {
+          "command": "sakura.refreshAgents",
+          "when": "view == sakura.agents",
+          "group": "navigation"
+        },
+        {
+          "command": "sakura.llmRefreshProviders",
+          "when": "view == sakura.llmProviders",
+          "group": "navigation"
+        },
+        {
+          "command": "sakura.llmPanel",
+          "when": "view == sakura.llmProviders",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "sakura.chat",
+          "when": "view == sakura.teams && viewItem == team",
+          "group": "inline"
+        },
+        {
+          "command": "sakura.selectTeam",
+          "when": "view == sakura.teams && viewItem == team",
+          "group": "inline"
+        },
+        {
+          "command": "sakura.llmSaveConfig",
+          "when": "view == sakura.llmProviders && viewItem == provider",
+          "group": "inline"
+        },
+        {
+          "command": "sakura.llmTest",
+          "when": "view == sakura.llmProviders && viewItem == provider",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "樱花小队",
+      "properties": {
+        "sakura.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "title": "服务器地址",
+          "description": "樱花小队后端 API 地址"
+        },
+        "sakura.token": {
+          "type": "string",
+          "default": "",
+          "title": "登录 Token",
+          "description": "JWT 登录 Token（留空则匿名访问）"
+        },
+        "sakura.llmDefaultModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "title": "默认 LLM 模型",
+          "description": "测试连接时使用的默认模型名"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.0.0"
+  }
+}

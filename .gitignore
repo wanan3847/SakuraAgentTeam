@@ -125,6 +125,16 @@ temp/
 reference/
 
 # ===========================================
+# IDE-installed skills (root-level skills/ — NOT backend/app/foundation/skills)
+# ===========================================
+/skills/
+
+# ===========================================
+# Orphan / temp HTML files at project root
+# ===========================================
+sakura-premium-redesign.html
+
+# ===========================================
 # OS files
 # ===========================================
 .DS_Store
@@ -137,3 +147,17 @@ Thumbs.db
 *.swo
 *~
 .bak
+
+# ===========================================
+# VS Code Extension
+# ===========================================
+vscode-extension/node_modules/
+vscode-extension/*.vsix
+vscode-extension/.vscode-test/
+
+# ===========================================
+# Desktop App
+# ===========================================
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/

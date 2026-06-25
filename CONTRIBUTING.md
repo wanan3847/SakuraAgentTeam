@@ -63,9 +63,9 @@ SakuraAgentTeam/
 │   ├── tests/                # pytest 测试
 │   └── pyproject.toml
 ├── frontend/                 # React + Vite 前端
-│   ├── src/pages/            # 6 个页面
-│   └── src/services/api.ts   # API 客户端
-├── docs/                     # 架构 / 演示 / 覆盖报告
+│   └── src/pages/            # 页面组件
+├── vscode-extension/         # VS Code 插件
+├── docs/                     # 文档
 ├── infra/                    # Docker Compose / Sandbox 镜像
 ├── deploy.sh                 # 一键启动脚本
 └── .github/workflows/ci.yml  # CI：lint + test + build
@@ -132,7 +132,7 @@ pytest tests/test_deployment_agent.py -v
 # 覆盖率报告
 pytest tests/ --cov=app --cov-report=term-missing
 
-# 当前总覆盖率：70%（详见 docs/coverage.md）
+# 当前总覆盖率：70%
 ```
 
 测试约定：
@@ -207,12 +207,12 @@ scope 示例：`agents`、`api`、`orchestration`、`frontend`、`ci`。
 | 文档 | 用途 |
 |------|------|
 | [README.md](./README.md) | 项目入口 / 5 分钟跑通 |
-| [docs/architecture.md](./docs/architecture.md) | 系统设计（M0-M4 全景） |
-| [docs/references.md](./docs/references.md) | 开源项目调研背景 |
-| [docs/demo.md](./docs/demo.md) | 端到端演示命令清单 |
-| [docs/coverage.md](./docs/coverage.md) | 测试覆盖率报告 |
-| [CHANGELOG.md](./CHANGELOG.md) | 版本变更日志 |
-| [docs/usage.md](./docs/usage.md) | API 使用说明 |
+| [docs/INSTALL.md](./docs/INSTALL.md) | 安装指南 |
+| [docs/CLI.md](./docs/CLI.md) | CLI 命令行使用指南 |
+| [docs/VSCODE_EXTENSION.md](./docs/VSCODE_EXTENSION.md) | VS Code 插件指南 |
+| [docs/AGENT_GUIDE.md](./docs/AGENT_GUIDE.md) | Agent 创建指南 + 100+ 专家列表 |
+| [docs/COLLABORATION_MODES.md](./docs/COLLABORATION_MODES.md) | 7 种协作模式详解 |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献指南 |
 
 修改架构、API、新增依赖时，同步更新对应文档。
 

@@ -1,191 +1,433 @@
-# SakuraAgentTeam
+# 樱花小队 SakuraAgentTeam
 
-> 多智能体可协同的全栈 Agent 开发系统 · 从自然语言需求到可运行应用
+> 一个可视化 AI 多智能体协作平台，支持 100+ 位虚拟专家、7 种协作模式、**每位用户用自己的 LLM Key**。
+> 借鉴 CrewAI / AG2 / Anthropic / MetaGPT / OpenAI Swarm / LangGraph 等成熟框架的能力。
 
-[![Backend Tests](https://img.shields.io/badge/backend-67%2F67%20passing-brightgreen)](./backend/tests)
-[![Frontend Build](https://img.shields.io/badge/frontend-vite%20build%20%7C%200%20errors-blue)](./frontend)
-[![Coverage](https://img.shields.io/badge/coverage-70%25-yellow)](./docs/coverage.md)
-[![License](https://img.shields.io/badge/license-MIT-green)](#)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org)
-[![Node 20+](https://img.shields.io/badge/node-20%2B-green)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org)
+[![React](https://img.shields.io/badge/react-18-61dafb)](https://react.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688)](https://fastapi.tiangolo.com)
+[![VS Code](https://img.shields.io/badge/VS%20Code-插件-007ACC)](./vscode-extension)
 
-## ✨ 特性
+- **GitHub**：<https://github.com/wanan3847/SakuraAgentTeam>
+- **免费获取 Token 教程**：[http://localhost:5173/tutorial](http://localhost:5173/tutorial)（启动后访问）
+- **友情链接**(放最下面,免得抢正文章节的位置):
+  - <https://041126.xyz/>
+  - <https://blog.041126.xyz/>
+  - <https://anime.041126.xyz/>
 
-- 🤖 **7 个角色 Agent**：需求 / 设计 / 前端 / 后端 / 测试 / 审查 / 部署
-- 🔀 **动态工作流**：根据项目状态（greenfield / brownfield / incremental）智能选择执行链
-- 🧠 **经验库**：ChromaDB 语义检索 + 关键词回退，自动积累错误解决方案
-- 🗂️ **Git 产物仓库**：每个 Session 一个 git 仓库，每个 Agent 完成后自动 commit
-- 🐳 **Docker 沙箱**：参考 OpenHands Runtime，代码执行安全隔离
-- 🌐 **多 LLM 支持**：OpenAI / Anthropic（用户自带 Key，支持 Mock 离线模式）
-- ⚡ **实时流**：SSE 事件总线，前端实时看到 Agent 进度和日志
-- 🎨 **现代工作台**：React + Vite + TypeScript + Tailwind，6 个页面
-- 🖥️ **CLI 客户端**：`sakura` 命令行，CI / 脚本友好
-- 🔌 **多源头输入**：GitHub Issue / PR · 飞书/钉钉/Slack · 文件上传 · URL 抓取
+---
 
-## 🚀 5 分钟跑通
+## 一句话介绍
+
+> **100 个专家 + 254 个 LLM 供应商 + 7 种协作模式 = 你的私人 AI 团队,每个人的 key 自己做主。**
+
+- **100+ 预设专家**:覆盖 30 个分类(创意/设计/技术/研究/策略/审核/行业/教育/金融/法律/健康/媒体/音乐/写作/数据/DevOps/商业/学术/翻译/电商/游戏/旅游/美食/体育/农业/能源/航空/环保/社交/心理)
+- **254+ LLM 供应商**:OpenAI / Anthropic / DeepSeek / Qwen / 智谱 / Kimi / Ollama / 自定义 OpenAI 兼容端点,**每个用户自带 Key**
+- **7 种协作模式**:群聊 / 流水线 / 管家 / 共识 / 并行 / 转交 / 状态图
+- **9 支预设团队**:开箱即用,涵盖营销 / 内容 / 研发 / 研究 / 创业 / 品牌 / 产品 / 并行工程 / 论文写作
+- **多端接入**:Web / VS Code 插件 / CLI / 桌面应用
+- **每用户独立 LLM**:你的 key 你的对话,token 走你自己的账户
+
+---
+
+## 5 分钟跑通
+
+### 1. 一键启动(推荐)
 
 ```bash
-# 1. 克隆
 git clone https://github.com/wanan3847/SakuraAgentTeam.git
 cd SakuraAgentTeam
-
-# 2a. Docker 一键起（推荐 — 持续运行，重启电脑后 ./deploy.sh prod 重新拉起）
-./deploy.sh prod
-# 浏览器：http://localhost:8080
-
-# 2b. 本地开发（uvicorn --reload + vite dev，代码热重载）
 ./deploy.sh dev
-# 浏览器：http://localhost:5173
 ```
 
-**两种模式共用**：配置（`backend/.env`）、数据（git 仓库 / 经验库）、LLM Key 都一致。
+浏览器打开 <http://localhost:5173>。
 
-停止服务：
+> 不填 LLM Key 也能跑 —— 后端会用 mock,Agent 走离线分支。**强烈建议** 至少配一个 Key,体验真实对话。
+
+### 2. 配自己的 LLM Key
+
+启动后:
+
+1. 注册账号(用户名 / 邮箱 / 密码)
+2. 顶栏点头像 → 「我的 LLM」→ 「添加 LLM 配置」
+3. 选厂商(254 个里挑一个) → 填 `base_url` / `api_key` / `model`
+4. 「测试连接」 ✓ → 「保存」 → 设为「默认」
+5. 进首页选个团队 → 发消息
+6. 第一个 SSE 事件会显示 **🟢 你的 DeepSeek · deepseek-chat**,说明你的 key 真的生效
+
+> 详细流程见 [docs/USER_LLM.md](./docs/USER_LLM.md)。
+
+### 3. CLI 一行
 
 ```bash
-./deploy.sh stop    # 停 Docker 或 dev 模式都通用
+pip install sakura-agent-team
+sakura login
+sakura llm-save --provider openai --base-url https://api.deepseek.com/v1 \
+                --api-key sk-... --model deepseek-chat --default
+sakura task "帮我写一份 LLM provider 调研"
 ```
 
-完整命令：`./deploy.sh {dev|prod|sandbox|stop|logs|clean}`
+---
 
-## 🖥️ CLI 客户端
+## 功能特性
 
-不打开浏览器也能用：
+### 核心:用户自带 LLM Key(★)
+
+- **真用你的 key**:每次对话都用你自己保存的 `api_key`,SSE 第一个事件会显示用的是哪家的 key。
+- **254+ 供应商**:从 OpenAI 到 Ollama,从 DeepSeek 到自建中转,全部 OpenAI 兼容,一行配置。
+- **per-user engine**:每个用户独立一个 `CollaborationEngine`,互不干扰,token 走你自己的账户。
+- **多配置切换**:可以配多个 LLM,日常用便宜的,关键时刻切到 Claude。
+- **CLI `sakura me-llm`**:随时查看"我的对话正在用谁的 key"。
+
+详见 [docs/USER_LLM.md](./docs/USER_LLM.md)。
+
+### 100+ 专家 / 7 种协作模式
+
+- **100+ 位预设专家智能体**:覆盖 30 个分类,详细列表见 [docs/AGENT_GUIDE.md](./docs/AGENT_GUIDE.md)。
+- **7 种协作模式**(借鉴业界成熟框架):
+  - 群聊 (group) — 顺序发言
+  - 流水线 (pipeline) — 接力产出
+  - 管家 (master) — 主管委派(借鉴 CrewAI Hierarchical)
+  - 共识 (consensus) — 群聊共识(借鉴 AG2 GroupChat)
+  - 并行 (parallel) — 并行执行(借鉴 Anthropic Orchestrator-Workers)
+  - 转交 (handoff) — Agent 互转(借鉴 OpenAI Swarm)
+  - 状态图 (graph) — DAG 任务图(借鉴 LangGraph)
+- **9 支预设团队**:开箱即用,营销 / 内容 / 研发 / 研究 / 创业 / 品牌 / 产品 / 并行工程 / 论文写作。
+- **可视化团队组建**:界面上挑专家、配协作模式、即时预览拓扑。
+
+### 实时 & 工具
+
+- **实时 SSE 流式输出**:每个 Agent 的发言、思考、产物都通过 Server-Sent Events 实时推送。
+- **共享白板**:借鉴 MetaGPT 产物链,团队成员共享一块白板,沉淀中间产物与最终交付物。
+- **执行追踪**:借鉴 Smolagents Trace,完整记录每一步 Agent 调用、工具使用、上下文流转。
+- **10 个内置工具**:file_edit / shell / grep / glob / web_search / web_scraper / mcp 等。
+- **11 个内置 Skill**:generate_fullstack / diagnose / tdd / prototype / pdf / to_prd / caveman / 等。
+
+### 多端接入
+
+- **Web 网页版** — React 18 + Vite + Tailwind,🌸 高级感视觉风格
+- **VS Code 插件** — 侧边栏 + Webview,直接在 IDE 里召唤团队
+- **CLI 命令行** — Typer,25+ 命令,完整 REPL,跨平台
+- **桌面应用** — Electron,macOS / Windows / Linux 安装包
+
+### 用户 & 社区
+
+- **JWT 注册登录**:区分匿名用户与登录用户。
+- **历史记录**:登录用户可查看、检索、续接过往的协作会话。
+- **Agent 社区提交**:用户提交 → 管理员审核 → 通过后加入 Agent 库,社区共建专家生态。
+- **教程页**:免费获取 Token 教程 + Agent 创建教程。
+
+---
+
+## 一键安装
+
+### 方式一:pip 安装(推荐)
+
+```bash
+pip install sakura-agent-team
+```
+
+安装后即可使用 `sakura` 命令行工具。
+
+### 方式二:一键脚本
+
+**macOS / Linux**:
+```bash
+git clone https://github.com/wanan3847/SakuraAgentTeam.git
+cd SakuraAgentTeam
+./scripts/install.sh
+```
+
+**Windows (PowerShell)**:
+```powershell
+git clone https://github.com/wanan3847/SakuraAgentTeam.git
+cd SakuraAgentTeam
+.\scripts\install.ps1
+```
+
+### 方式三:源码安装
+
+```bash
+git clone https://github.com/wanan3847/SakuraAgentTeam.git
+cd SakuraAgentTeam
+cd backend && pip install -r requirements.txt
+cd ../frontend && npm install
+```
+
+> 详细安装说明见 [docs/INSTALL.md](./docs/INSTALL.md)。
+
+---
+
+## 快速开始
+
+### 启动后端
 
 ```bash
 cd backend
-python3 -m cli config set --api-url http://localhost:8000
-python3 -m cli task "做个 todo app"          # 提交任务 + 流式跟踪
-python3 -m cli sessions                     # 列出所有会话
-python3 -m cli status <session_id>          # 查看详情
-python3 -m cli artifacts <session_id>       # 看产物
-python3 -m cli logs <session_id>            # 流式日志
-python3 -m cli cancel <session_id>           # 取消
-python3 -m cli doctor                       # 诊断连接
+cp .env.example .env   # 填入 LLM API Key(可选)
+python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-配置存 `~/.sakura/config.toml`，环境变量 `SAKURA_API_URL` / `SAKURA_API_TOKEN` 覆盖。
-
-## 🔌 多源头输入
-
-通过 webhook 把需求从任何工具推过来：
-
-| 端点 | 用途 | 签名 |
-|---|---|---|
-| `POST /api/v1/connectors/github/issues` | GitHub Issue 触发 | `GITHUB_WEBHOOK_SECRET` |
-| `POST /api/v1/connectors/github/pr` | GitHub PR / 评论触发 | `GITHUB_WEBHOOK_SECRET` |
-| `POST /api/v1/connectors/im` | 飞书/钉钉/Slack/企微通用 | `IM_WEBHOOK_TOKEN` |
-| `POST /api/v1/connectors/upload` | 文件上传（MD/PDF/PNG/JPG）| — |
-| `POST /api/v1/connectors/url` | URL 网页抓取 | — |
-
-示例（飞书机器人）：
+### 启动前端
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/connectors/im \
-  -H "Content-Type: application/json" \
-  -d '{"source":"feishu","text":"做个登录页","sender":"u1","chat_id":"oc_xxx"}'
+cd frontend
+npm run dev
 ```
 
-## 📁 项目结构
+浏览器访问 <http://localhost:5173>,后端 API 文档 <http://localhost:8000/docs>。
+
+### 一键启动
+
+```bash
+./deploy.sh dev
+```
+
+---
+
+## CLI 使用
+
+```bash
+# 配置
+sakura config set --api-url http://localhost:8000 --token <your_token>
+
+# 提交任务
+sakura task "帮我设计一个登录页面"
+
+# 查看会话
+sakura sessions
+sakura status <session_id>
+sakura logs <session_id>
+
+# LLM 管理
+sakura me-llm                  # 看我现在用谁的 key
+sakura llm-save --provider ... # 配一个新 LLM
+sakura llm-list                # 列出所有 LLM 配置
+sakura llm-set-default <id>    # 切默认
+
+# 交互式 REPL(输入 / 显示所有命令菜单)
+sakura repl
+```
+
+> 完整 CLI 文档见 [docs/CLI.md](./docs/CLI.md)。
+
+---
+
+## VS Code 插件
+
+```bash
+cd vscode-extension
+npm install
+npm run package   # 生成 .vsix 安装包
+```
+
+然后在 VS Code 扩展面板「从 VSIX 安装」即可。
+
+功能:
+- 侧边栏团队 / 专家列表
+- Webview 聊天面板(SSE 流式)
+- 一键打开网页版
+
+> 详细说明见 [docs/VSCODE_EXTENSION.md](./docs/VSCODE_EXTENSION.md)。
+
+---
+
+## 桌面应用
+
+樱花小队提供桌面应用(基于 Electron),支持 macOS / Windows / Linux:
+
+```bash
+cd desktop
+npm install
+npm run build   # 打包
+```
+
+> 桌面应用打包产物见 [GitHub Releases](https://github.com/wanan3847/SakuraAgentTeam/releases)。
+
+---
+
+## 100+ Agent 列表
+
+樱花小队内置 100 位预设专家,覆盖 30 个分类:
+
+| 分类 | 数量 | 代表专家 |
+|------|------|----------|
+| 创意 (creative) | 4 | 文案、主笔、小说家、诗人 |
+| 设计 (design) | 4 | 视觉、交互、插画、动效 |
+| 技术 (tech) | 7 | 全栈、前端、后端、AI 工程、数据、运维、安全 |
+| 研究 (research) | 4 | 行研、数据科学、用户研究、产品经理 |
+| 策略 (strategy) | 7 | 增长、战略、商务、销售、财务、运营、项目 |
+| 审核 (qa) | 2 | 审核、测试 |
+| 行业 (industry) | 12 | 法务、私教、教授、翻译、公关、演讲、健康、职涯、SaaS、教育、金融、医疗 |
+| 教育 (education) | 3 | 在线教师、课程设计师、教育顾问 |
+| 金融 (finance) | 3 | 财务顾问、投资分析师、会计 |
+| 法律 (legal) | 2 | 法律顾问、合同审查 |
+| 健康 (healthcare) | 2 | 健康顾问、心理咨询师 |
+| 媒体 (media) | 3 | 视频编导、播客制作人、摄影师 |
+| 音乐 (music) | 2 | 音乐制作人、作曲家 |
+| 写作 (writing) | 3 | 小说家、剧本作家、诗人 |
+| 数据 (data) | 3 | 数据科学家、数据工程师、ML 工程师 |
+| DevOps (devops) | 3 | DevOps 工程师、SRE、安全工程师 |
+| 商业 (business) | 3 | 商业顾问、项目经理、运营经理 |
+| 学术 (academic) | 7 | 文献调研、方法设计、数据分析、论文写作、编辑润色、项目管理、论文审查 |
+| 翻译 (translation) | 3 | 英文翻译、日文翻译、多语种翻译 |
+| 电商 (ecommerce) | 3 | 电商运营、选品专家、直播策划 |
+| 游戏 (game) | 3 | 游戏设计师、游戏开发、游戏剧情 |
+| 旅游 (travel) | 2 | 旅行规划师、旅游文案 |
+| 美食 (food) | 2 | 菜谱开发、美食评论 |
+| 体育 (sports) | 2 | 运动教练、体育分析 |
+| 农业 (agriculture) | 2 | 农业技术、园艺师 |
+| 能源 (energy) | 2 | 新能源、电力系统 |
+| 航空 (aerospace) | 2 | 航空工程、无人机 |
+| 环保 (environment) | 2 | 环境工程、碳中和 |
+| 社交 (social) | 2 | 社交媒体、社群运营 |
+| 心理 (psychology) | 1 | 职业规划 |
+
+> 完整 Agent 列表与创建指南见 [docs/AGENT_GUIDE.md](./docs/AGENT_GUIDE.md)。
+
+---
+
+## 100+ LLM 供应商
+
+通过 LiteLLM 一行接入 254+ LLM 供应商,详细配置见 [docs/USER_LLM.md](./docs/USER_LLM.md)。
+
+| 类型 | 代表供应商 |
+|------|-----------|
+| 协议类 | OpenAI、Anthropic |
+| 云平台 | AWS Bedrock、Google Vertex AI、Azure OpenAI |
+| 国产 | DeepSeek、通义千问 Qwen、智谱 GLM、Kimi、零一万物、火山引擎豆包、腾讯混元、百度千帆 |
+| 主流第三方 | Google Gemini、Mistral、Cohere、Groq、Together AI、OpenRouter、Fireworks AI、DeepInfra |
+| 本地 | Ollama、vLLM、任意 OpenAI 兼容端点 |
+
+启动后访问 `GET /api/v1/llm/providers` 看完整列表,或在 Web 端 ProvidersPage 浏览配置。
+
+---
+
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 后端 | Python 3.11+ / FastAPI / SQLAlchemy / SQLite / SSE |
+| 前端 | React 18 / TypeScript / Tailwind CSS / Vite / 🌸 暖纸感视觉风格 |
+| LLM | OpenAI 兼容 API + LiteLLM(254+ 供应商) |
+| CLI | Typer / Rich |
+| VS Code 插件 | Node.js / VS Code Extension API |
+| 桌面 | Electron |
+
+---
+
+## 项目结构
 
 ```
 SakuraAgentTeam/
 ├── backend/                  # FastAPI 后端
 │   ├── app/
-│   │   ├── agents/          # 7 个 Agent 实现
-│   │   ├── foundation/      # LLM / Tool / Git / Experience
-│   │   ├── orchestration/   # Session / Engine / Workflow
-│   │   ├── api/             # FastAPI 路由（routes.py + connectors.py）
-│   │   └── core/            # config / logging / sandbox
-│   ├── cli/                 # sakura CLI 客户端
-│   ├── tests/               # 54 个 pytest 测试
-│   ├── scripts/             # debug_agent.py / llm_connect_check.py
-│   ├── data/                # 运行时数据（被 .gitignore 排除）
-│   └── requirements.txt
-├── frontend/                 # React + Vite + TS
+│   │   ├── agents/           # 100+ Agent 定义 + 注册表
+│   │   ├── api/              # HTTP / SSE 路由
+│   │   ├── auth/             # JWT 用户认证
+│   │   ├── core/             # 配置 / 日志 / 沙箱
+│   │   ├── foundation/       # LLM / 工具 / 技能 / MCP
+│   │   ├── history/          # 历史记录
+│   │   ├── llm_providers/    # 254+ LLM 供应商 + per-user 配置
+│   │   ├── orchestration/    # 7 种协作引擎
+│   │   └── submissions/      # Agent 社区提交
+│   ├── cli/                  # 命令行客户端(25+ 命令)
+│   └── tests/                # pytest 测试
+├── frontend/                 # React + Vite 前端
 │   └── src/
-│       ├── pages/           # 6 个页面
-│       ├── components/      # CodeBlock / Layout
-│       └── services/api.ts  # 后端 API 封装
-├── docs/                     # 架构 / 使用 / 演示 / 调研
-│   ├── architecture.md       # 架构总览（M0-M4 全景）
-│   ├── usage.md              # 使用说明 / API 速查
-│   ├── demo.md               # 端到端演示命令
-│   ├── coverage.md           # 测试覆盖率报告
-│   └── references.md         # 开源项目调研背景
-├── scripts/                  # verify_progress.py（E2E 验证）
-├── deploy.sh                 # 一键启动 / 停止 / 部署
-├── CHANGELOG.md              # 变更日志
-└── CONTRIBUTING.md           # 贡献指南
+│       ├── pages/            # 10 个页面
+│       ├── components/       # CountUp / SakuraPetals / ...
+│       └── contexts/         # React Context
+├── vscode-extension/         # VS Code 插件
+├── desktop/                  # 桌面应用
+├── docs/                     # 文档
+│   ├── INSTALL.md            # 安装指南
+│   ├── CLI.md                # CLI 使用
+│   ├── VSCODE_EXTENSION.md   # VS Code 插件
+│   ├── AGENT_GUIDE.md        # Agent 创建指南
+│   ├── COLLABORATION_MODES.md # 7 种协作模式
+│   ├── ARCHITECTURE.md       # 后端架构
+│   ├── USER_LLM.md           # 用户 LLM Key 流程
+│   └── OPENDESIGN_REFERENCE.md # opendesign 风格参考(待重设计用)
+├── infra/                    # Docker Compose / 沙箱镜像
+├── scripts/                  # 安装 / 启动脚本
+└── deploy.sh                 # 一键部署
 ```
 
-## 🧪 测试
+---
 
-```bash
-# 后端（67 个测试，含 CLI + 5 个 connector 端点 + litellm 100+ 模型 + E2E workflow + deployment agent）
-cd backend && python3 -m pytest tests/ -v
+## API 文档
 
-# 前端类型检查 + 构建
-cd frontend && npm run build
+启动后端后访问 <http://localhost:8000/docs> 查看 Swagger 文档。
 
-# 端到端验证（启动 dev server 后另开终端）
-python3 scripts/verify_progress.py
-```
+主要接口:
 
-覆盖率：[docs/coverage.md](./docs/coverage.md)（总 70%）
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/experts` | 获取所有专家 |
+| GET | `/api/v1/experts/categories` | 获取所有分类 |
+| GET | `/api/v1/teams` | 获取预设团队 |
+| POST | `/api/v1/teams` | 创建自定义团队 |
+| POST | `/api/v1/teams/{id}/chat` | 团队协作(SSE 流式,per-user LLM) |
+| POST | `/api/v1/teams/{id}/graph` | 状态图模式(LangGraph 风格) |
+| POST | `/api/v1/teams/{id}/handoff` | Handoff 模式(Swarm 风格) |
+| GET | `/api/v1/llm/providers` | 254+ 供应商列表 |
+| GET | `/api/v1/llm/configs` | 我的 LLM 配置 |
+| POST | `/api/v1/llm/configs` | 保存 LLM 配置 |
+| POST | `/api/v1/llm/test-connection` | 测试连接 |
+| GET | `/api/v1/me/llm-config` | 我现在用的 LLM |
+| POST | `/api/v1/auth/register` | 用户注册 |
+| POST | `/api/v1/auth/login` | 用户登录 |
+| GET | `/api/v1/history` | 历史记录 |
+| POST | `/api/v1/submissions` | 提交 Agent |
 
-## 🤖 LLM 配置
+---
 
-默认使用 **Mock Provider**（不调用真实 API）。要启用真模型：
+## 借鉴的业界框架
 
-```bash
-# 1. 编辑 backend/.env（100+ 提供商任选，详见下面"支持哪些"）
-echo "OPENAI_API_KEY=sk-..." >> backend/.env            # OpenAI
-# 或
-echo "ANTHROPIC_API_KEY=sk-ant-..." >> backend/.env    # Anthropic
-# 或
-echo "DEEPSEEK_API_KEY=sk-..." >> backend/.env         # DeepSeek
-# 或
-echo "DASHSCOPE_API_KEY=sk-..." >> backend/.env        # 阿里 Qwen
-# 或
-echo "ZHIPUAI_API_KEY=..." >> backend/.env             # 智谱 GLM
+| 框架 | 借鉴点 |
+|------|--------|
+| CrewAI | Agent 4 件套 (role / goal / backstory / skills) + ProcessType |
+| AG2 (AutoGen) | GroupChatManager + 智能选择发言者 |
+| Anthropic Multi-Agent | Orchestrator-Workers 并行模式 |
+| MetaGPT | 共享白板产物链 |
+| OpenAI Swarm | Handoff 转交模式 |
+| LangGraph | 任务状态机 (DAG + Checkpoint) |
+| Smolagents | Agent Trace 执行追踪 |
+| LiteLLM | 254+ LLM 供应商一行接入 |
 
-# 2. 验证接入（不消耗 token）
-cd backend && python3 scripts/llm_connect_check.py
-# 退出码 0 = 就绪，1 = 未配置，2 = 加载失败
-```
+---
 
-**支持的 100+ 提供商**（通过 [litellm](https://docs.litellm.ai/docs/providers) 统一接口）：
-
-| 协议 | 云平台 | 国产 | 主流第三方 | 本地 |
-|------|--------|------|-----------|------|
-| OpenAI · Anthropic | AWS Bedrock · Vertex AI · Azure | DeepSeek · Qwen(DashScope) · Zhipu GLM · Moonshot Kimi · Yi · Volcengine · Hunyuan · Qianfan | Gemini · Mistral · Cohere · Groq · Together · OpenRouter · Fireworks · DeepInfra | Ollama · vLLM · 任意 OpenAI 兼容端点 |
-
-切换 provider：在 `backend/.env` 设 `DEFAULT_LLM_PROVIDER=litellm` + `DEFAULT_LLM_MODEL=openai/gpt-4o`（或 `anthropic/claude-3-5-sonnet-20241022` / `deepseek/deepseek-chat` / `ollama/llama3` 等）。
-
-CLI 查询：`python3 -m cli providers`（24 常用）· `python3 -m cli providers --full`（2784 全量）。
-
-详细：[docs/usage.md § 6](./docs/usage.md#6-llm-provider-配置)
-
-## 📚 文档
+## 文档索引
 
 | 文档 | 内容 |
 |------|------|
-| [docs/architecture.md](./docs/architecture.md) | 架构总览 · 任务拆分 · 开源参考 |
-| [docs/usage.md](./docs/usage.md) | 使用说明 · API 速查 · 调试技巧 |
-| [docs/demo.md](./docs/demo.md) | 端到端演示命令清单 |
-| [docs/coverage.md](./docs/coverage.md) | 测试覆盖率报告（70%）|
-| [docs/references.md](./docs/references.md) | OpenHands / Claude Code / CrewAI 调研 |
-| [CHANGELOG.md](./CHANGELOG.md) | 版本变更日志 |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献指南 · PR 流程 |
+| [docs/INSTALL.md](./docs/INSTALL.md) | 安装指南(pip / 源码 / macOS / Windows / Docker / VS Code) |
+| [docs/DEPLOY.md](./docs/DEPLOY.md) | **生产部署指南**(Linux VPS / Nginx / HTTPS / 备份 / 监控) |
+| [docs/CLI.md](./docs/CLI.md) | CLI 命令行使用指南(25+ 命令) |
+| [docs/VSCODE_EXTENSION.md](./docs/VSCODE_EXTENSION.md) | VS Code 插件指南 |
+| [docs/AGENT_GUIDE.md](./docs/AGENT_GUIDE.md) | Agent 创建指南 + 100+ 专家完整列表 |
+| [docs/COLLABORATION_MODES.md](./docs/COLLABORATION_MODES.md) | 7 种协作模式详解 |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 后端架构(per-user engine / SSE / framework 借鉴) |
+| [docs/USER_LLM.md](./docs/USER_LLM.md) | 用户 LLM Key 流程(配 Key → 验证 → 排错) |
+| [docs/OPENDESIGN_REFERENCE.md](./docs/OPENDESIGN_REFERENCE.md) | opendesign 风格前端参考手册(待重设计用) |
+| [CHANGELOG.md](./CHANGELOG.md) | 变更日志 |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献指南 |
+| [LICENSE](./LICENSE) | MIT 协议 |
 
-## 🗺️ 路线图
+---
 
-✅ M0 基础设施 · M1 单 Agent · M2 多 Agent 编排 · M3 可用性工程化 · M4 进一步增强
-⏭️ M5 OpenTelemetry 监控（依赖实际部署量，暂不实现）
+## 友情链接
 
-详细：[docs/architecture.md § 7-10](./docs/architecture.md)
+(放最下面,不抢正文章节)
 
-## 📄 许可证
+- <https://041126.xyz/>
+- <https://blog.041126.xyz/>
+- <https://anime.041126.xyz/>
 
-MIT
+---
+
+## License
+
+[MIT](./LICENSE) © 2026 wanan3847

@@ -32,27 +32,55 @@ class BackendAgent(Agent):
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
-        """Generate backend code based on PRD/design."""
+        """Generate backend code based on PRD/design.
+
+        有 LLM provider 时调用 LLM 生成后端代码；
+        无 LLM 或 LLM 调用失败时回退到模板逻辑。
+        """
         logger.info("backend_agent_execute", session_id=ctx.session_id)
 
         features = self._extract_features(ctx)
 
-        # Generate backend files
-        main_py = self._generate_main(features)
-        models_py = self._generate_models(features)
-        schemas_py = self._generate_schemas(features)
-        routes_py = self._generate_routes(features)
-        requirements_txt = self._generate_requirements()
+        # 优先使用 LLM 生成后端代码
+        files_map: dict[str, str] | None = None
+        if self.llm is not None:
+            try:
+                files_map = await self._generate_with_llm(features, ctx)
+            except Exception as exc:
+                logger.warning(
+                    "backend_agent_llm_fallback",
+                    error=str(exc),
+                )
+                files_map = None
 
+        # 无 LLM 或 LLM 失败时使用模板
+        if files_map is None:
+            files_map = {
+                "backend/main.py": self._generate_main(features),
+                "backend/models.py": self._generate_models(features),
+                "backend/schemas.py": self._generate_schemas(features),
+                "backend/routes.py": self._generate_routes(features),
+                "backend/requirements.txt": self._generate_requirements(),
+            }
+
+        # 确保 requirements.txt 存在（固定内容，LLM 不生成）
+        if "backend/requirements.txt" not in files_map or not files_map["backend/requirements.txt"].strip():
+            files_map["backend/requirements.txt"] = self._generate_requirements()
+
+        # 按固定顺序构造 artifact 内容
+        ordered_paths = [
+            "backend/main.py",
+            "backend/models.py",
+            "backend/schemas.py",
+            "backend/routes.py",
+            "backend/requirements.txt",
+        ]
         content_parts = []
-        for name, code in [
-            ("backend/main.py", main_py),
-            ("backend/models.py", models_py),
-            ("backend/schemas.py", schemas_py),
-            ("backend/routes.py", routes_py),
-            ("backend/requirements.txt", requirements_txt),
-        ]:
+        files_list = []
+        for name in ordered_paths:
+            code = files_map.get(name, "")
             content_parts.append(f"--- {name} ---\n\n{code}\n\n")
+            files_list.append({"path": name, "content": code})
 
         combined = "\n".join(content_parts)
 
@@ -62,21 +90,96 @@ class BackendAgent(Agent):
             name="backend_code",
             content=combined,
             metadata={
-                "files_generated": 5,
+                "files_generated": len(files_list),
                 "features": [f["title"] for f in features],
                 "routes_count": len(features) * 5,
-                "files": [
-                    {"path": "backend/main.py", "content": main_py},
-                    {"path": "backend/models.py", "content": models_py},
-                    {"path": "backend/schemas.py", "content": schemas_py},
-                    {"path": "backend/routes.py", "content": routes_py},
-                    {"path": "backend/requirements.txt", "content": requirements_txt},
-                ],
+                "files": files_list,
             },
         )
 
         logger.info("backend_agent_done", session_id=ctx.session_id)
         return artifact
+
+    async def _generate_with_llm(
+        self, features: list[dict], ctx: Context
+    ) -> dict[str, str]:
+        """使用 LLM 生成后端 4 个核心代码文件。
+
+        返回 {file_path: content}。解析失败或文件不足时抛异常触发回退。
+        """
+        features_desc = "\n".join(
+            f"- {f['title']}: {f.get('description', '')}" for f in features
+        )
+
+        # 读取前序 Agent 的 PRD 作为上下文
+        prd_content = ""
+        req_output = ctx.get_output(AgentRole.REQUIREMENTS.value)
+        if req_output and hasattr(req_output, "content"):
+            prd_content = req_output.content
+
+        prompt = f"""你是 FastAPI 后端专家。请根据需求和功能列表生成完整的后端代码。
+
+## 用户需求
+{ctx.user_requirement}
+
+## 功能列表
+{features_desc}
+
+## PRD 文档（节选）
+{prd_content[:2000] if prd_content else "无"}
+
+## 输出要求
+生成以下 4 个文件，每个文件严格使用如下格式输出：
+
+### FILE: backend/main.py
+```python
+# 代码内容
+```
+
+### FILE: backend/models.py
+```python
+# 代码内容
+```
+
+### FILE: backend/schemas.py
+```python
+# 代码内容
+```
+
+### FILE: backend/routes.py
+```python
+# 代码内容
+```
+
+代码要求：
+- backend/main.py: FastAPI 应用入口，配置 CORS 中间件、/health 健康检查端点、根路径端点，
+  并 include_router 引入所有功能路由
+- backend/models.py: SQLAlchemy 模型，每个功能对应一个模型类，使用 SQLite 数据库
+  (SQLALCHEMY_DATABASE_URL = "sqlite:///./sakura.db")，包含 id/title/description/status/created_at/updated_at 字段
+- backend/schemas.py: Pydantic schemas，每个功能提供 Base/Create/Update/Response/ListResponse 类
+- backend/routes.py: API 路由，每个功能提供完整 CRUD（GET 列表、POST 创建、GET 单个、PUT 更新、DELETE 删除），
+  路由前缀使用 /api/v1/<resource>，提供 get_db 依赖
+- 代码要能直接 uvicorn main:app 运行
+"""
+        response = await self.run_agentic_loop(
+            prompt=prompt,
+            ctx=ctx,
+            system_prompt=self.build_system_prompt(ctx),
+        )
+        files_map = self.parse_files_block(response)
+
+        # 校验必需的 4 个文件是否都生成了
+        required = [
+            "backend/main.py",
+            "backend/models.py",
+            "backend/schemas.py",
+            "backend/routes.py",
+        ]
+        missing = [f for f in required if f not in files_map or not files_map[f].strip()]
+        if missing:
+            raise ValueError(f"LLM 生成的后端文件不完整，缺少: {missing}")
+
+        return files_map
 
     def _extract_features(self, ctx: Context) -> list[dict]:
         """Extract features from context."""

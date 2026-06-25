@@ -38,12 +38,25 @@ class DeploymentAgent(Agent):
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
-        """Generate deployment files + verify docker-compose syntax (M4-I2)."""
+        """Generate deployment files + verify docker-compose syntax (M4-I2).
+
+        有 LLM provider 时调用 LLM 生成针对项目的部署配置；
+        无 LLM 或 LLM 调用失败时回退到模板逻辑。
+        """
         logger.info("deployment_agent_execute", session_id=ctx.session_id)
+
+        # 优先使用 LLM 生成针对项目的部署 README
+        llm_readme: str | None = None
+        if self.llm is not None:
+            try:
+                llm_readme = await self._generate_readme_with_llm(ctx)
+            except Exception as exc:
+                logger.warning("deployment_agent_llm_fallback", error=str(exc))
+                llm_readme = None
 
         dockerfile = self._generate_dockerfile()
         compose = self._generate_docker_compose()
-        readme = self._generate_readme()
+        readme = llm_readme if llm_readme else self._generate_readme()
         frontend_docker = self._generate_frontend_dockerfile()
 
         # M4-I2: Verify docker-compose syntax via `docker compose config` (dry-run)
@@ -136,6 +149,56 @@ class DeploymentAgent(Agent):
                 return False, "docker compose config timeout (>20s)"
             except Exception as e:
                 return False, f"verify error: {e}"
+
+    async def _generate_readme_with_llm(self, ctx: Context) -> str:
+        """使用 LLM 生成针对项目的部署 README。
+
+        读取需求和前序 agent 的产物作为上下文。
+        解析失败时抛异常触发回退。
+        """
+        # 收集上下文
+        req_output = ctx.get_output(AgentRole.REQUIREMENTS.value)
+        design_output = ctx.get_output(AgentRole.DESIGN.value)
+        backend_output = ctx.get_output(AgentRole.BACKEND.value)
+        frontend_output = ctx.get_output(AgentRole.FRONTEND.value)
+
+        context_parts = [f"## 用户需求\n{ctx.user_requirement}"]
+        if req_output and hasattr(req_output, "content"):
+            context_parts.append(f"## PRD 摘要\n{req_output.content[:1000]}")
+        if backend_output and hasattr(backend_output, "metadata"):
+            features = backend_output.metadata.get("features", [])
+            context_parts.append(
+                "## 后端功能\n" + "\n".join(f"- {f}" for f in features)
+            )
+        if frontend_output and hasattr(frontend_output, "metadata"):
+            files = frontend_output.metadata.get("files_generated", 0)
+            context_parts.append(f"## 前端文件数: {files}")
+        context_block = "\n\n".join(context_parts)
+
+        prompt = f"""你是 DevOps 工程师。请根据项目上下文，生成针对该项目的部署 README。
+
+{context_block}
+
+## 输出要求
+生成完整的 Markdown 部署指南（600 字以上），包含：
+1. 项目概述（针对该需求的特点）
+2. 快速开始（docker-compose up --build）
+3. 访问地址（backend / frontend / api docs）
+4. 开发模式运行说明
+5. 生产环境注意事项（安全、数据库、监控、日志）
+6. 故障排查（常见问题 + 解决方法）
+7. 项目结构（针对该项目的实际结构）
+
+直接输出 Markdown 内容，不要 JSON 包装，不要代码块包裹整个文档。
+"""
+        response = await self.run_agentic_loop(
+            prompt=prompt,
+            ctx=ctx,
+            system_prompt=self.build_system_prompt(ctx),
+        )
+        if not response or len(response.strip()) < 200:
+            raise ValueError("LLM 生成的 README 过短")
+        return response
 
     def _generate_dockerfile(self) -> str:
         """Generate backend Dockerfile."""

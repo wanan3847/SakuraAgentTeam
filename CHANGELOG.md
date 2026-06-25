@@ -1,109 +1,108 @@
 # Changelog
 
-SakuraAgentTeam 的所有变更记录。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
+SakuraAgentTeam 项目的所有重要变更记录。
 
-## [Unreleased] — M4 阶段
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
+版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-### Added
-- **M4-I2 部署 Agent 真实 docker build 验证**：DeploymentAgent 跑 `docker compose config` 验证生成的 `docker-compose.yml` 语法，把 `build_verified` 字段写到 artifact metadata
-- **M4 测试套件**：[backend/tests/test_deployment_agent.py](../backend/tests/test_deployment_agent.py)（2 个用例）
-- **docs/demo.md**：端到端演示文档（启动→创建→实时进度→产物→git 历史→回滚）
-- **docs/architecture.md 精简**：1508 → 492 行；开源项目调研移到 docs/references.md
-- **deploy.sh**：一键启动 dev/prod/stop/logs/clean
-- **infra/docker-compose.yml** + **frontend/Dockerfile** + **nginx.conf**：Docker 生产部署
-- **README.md 增强**：徽章 + 特性 + 5 分钟跑通 + 路线图
-- **docs/coverage.md**：测试覆盖率报告（70% 总覆盖率，各模块明细）
-- **CONTRIBUTING.md**：开发环境 / 规范 / PR 流程 / Commit 规范
-- **architecture.md 章节编号统一**：所有子章节编号修正为「顶级章节号.x」一致格式
-- **M4-I7 LLM 接入流程就绪**：`scripts/llm_connect_check.py` 验证 key 加载 + Provider 实例化（不消耗 token）
-- **deploy.sh 智能后端选择**：system Python 优先 → venv fallback → uv 装（macOS 用户无需重下依赖）
+---
 
-### Fixed
-- **connect-check 占位符检测**：修复把 .env.example 的 `sk-your-...` 当成真 key 的 bug
-- **本地开发体验**：macOS 上 system Python 已有 fastapi/openai/anthropic，deploy.sh 直接用，避免 venv 重下 1GB 依赖
-- **缺失包补齐**：aiofiles / aiosqlite / docker 装上（uv 装，比 pip 快 100x）
+## [Unreleased] — 2026-06-25
 
-### Known Limitations
-- **ChromaDB 未装**：环境 PyPI 网络受限 + onnxruntime 依赖太大未完成；fallback 关键词检索已可用，**安装为可选优化**（`uv pip install chromadb`）
+### ✨ 新增
 
-### Changed
-- **M2-I2 修复**：engine.py 在 `agent.run()` 成功后调用 `update_agent_progress(COMPLETED)`，修复 agent_progress 永远显示 running 的 bug
-- **M2-I7 修复**：routes.py `_execute_workflow` 把 `projects_root`/`project_id` 传给 `engine.run()`，修复产物没 commit 到 git 的 bug
-- **Pydantic v2 兼容**：`class Config` 全部替换为 `model_config = SettingsConfigDict(...)`
-- **datetime.utcnow() 弃用修复**：14 处全部改为 `datetime.now(timezone.utc).isoformat()`
-- **AsyncClient 迁移**：`AsyncClient(app=...)` 替换为 `ASGITransport(app=app)`
-- **requirements.txt**：新增 anthropic / GitPython / chromadb
-- **frontend/package.json**：新增 axios
+#### Bug 报告入口
+- 新增 `frontend/src/lib/feedback.ts` — `openBugReport()` / `openFeatureRequest()`,生成带 URL/UA/时间/堆栈的 GitHub Issue 链接,`window.open` 一键跳转。
+- `HomePage.tsx` 页脚新增"报告 Bug"按钮(lucide `Bug` 图标)。
+- `TutorialPage.tsx` 顶栏右侧 + 顶部 banner 双入口,带 issue 模板说明(描述 / 复现 / 期望 vs 实际 / 环境 / 错误堆栈)。
 
-## [v1.0.0] — 2026-06-20 · 首次发布
+#### 教学中心补全
+- `TutorialPage.tsx` 修复 4 个 Tab 都正常渲染(create / token / usage / **download**),default tab 改为 `download`。
+- 加 `TutorialErrorBoundary` 类组件包裹 4 个 Tab,任何子组件抛错会在 UI 显示具体 `error.message`,浏览器 console 打 `[TutorialPage] runtime error: ...`,不再整页空白。
+- 9 个下载方式(Web / macOS / Windows / Linux / VS Code / CLI / 一键脚本 / Docker / 源码)+ GitHub Release CTA。
 
-### Added
-- **M0 基础设施**（8/8）
-  - M0-I1 目录结构（monorepo: backend/frontend/infra/docs/scripts）
-  - M0-I2 FastAPI 脚手架 + Pydantic v2
-  - M0-I3 React + Vite + TypeScript + Tailwind
-  - M0-I4 LLM Provider 抽象（OpenAI/Anthropic 可插拔）
-  - M0-I5 Tool 基类（file_read/file_write/shell_run）
-  - M0-I6 Docker 沙箱（[backend/app/core/sandbox.py](../backend/app/core/sandbox.py)）
-  - M0-I7 Git 产物仓库（[backend/app/foundation/git_repo.py](../backend/app/foundation/git_repo.py)）
-  - M0-I8 GitHub Actions CI（ruff + pyright + pytest + eslint + vite build）
+#### HomePage 实时指标仪表盘
+- 新增 `frontend/src/components/CountUp.tsx` — `requestAnimationFrame + easeOutCubic` 1800ms 数字滚动动画,`IntersectionObserver` 进入视口触发,千分位,后缀,前缀全支持。StrictMode 双 mount 兼容(cleanup reset `startedRef`)。
+- HomePage 5 张指标卡片(12,510 / 5 / 38,540 / 100+ / 254+),每张含 `+Δ%` 增量徽章(sage 绿)、1px 强调色边线、live 呼吸点。
+- 借鉴 Linear / Vercel / opendesign dashboard 风格,数字从 0 滚动到位。
 
-- **M1 单 Agent**（6/6）
-  - M1-I1 Agent 基类 + Context/Plan/Artifact
-  - M1-I2 需求 Agent（PRD 生成）
-  - M1-I3 SessionManager（[backend/app/orchestration/session.py](../backend/app/orchestration/session.py)）
-  - M1-I4 EventBus + SSE 流（[backend/app/orchestration/eventbus.py](../backend/app/orchestration/eventbus.py)）
-  - M1-I5 前端会话页（[frontend/src/pages/SessionPage.tsx](../frontend/src/pages/SessionPage.tsx)）
-  - M1-I6 端到端单 Agent 调试（[backend/scripts/debug_agent.py](../backend/scripts/debug_agent.py)）
+#### 核心:用户 LLM Key 真的被使用
+- **核心 Bug 修复**:之前 chat 路由统一用 `OPENAI_API_KEY`(.env 里的开发者共享 key),**没有**走用户自己保存的 key。
+- 新增 `backend/app/llm_providers/async_helpers.py` — `build_llm_for_user_async(user_id)` 异步为指定用户构建 LLM provider,优先用 `is_default=True & is_active=True` 的 `CustomProvider`,否则退回最新激活配置。
+- 新增 `backend/app/orchestration/agent_team.py` — `get_engine_for_user_async(user_id)` 为每个用户独立维护一个 `CollaborationEngine`,互不干扰。
+- 改造 `backend/app/api/teams.py` — 4 个 chat 路由(`/chat`、`/chat/sync`、`/handoff`、`/graph`)全部接受 `user: User = Depends(get_current_user)`,**真的**用用户自己存的 LLM key。
+- 改造 SSE 流式:第一个事件固定为 `event: llm_info`,data 包含 `source: user|shared`, `display_name`, `provider_id`, `model`, `base_url`, `has_api_key`,告诉前端"这次对话用谁的 key"。
+- 新增 `GET /api/v1/me/llm-config` — 前端"我的 LLM" 页面用。
+- 新增 CLI 命令 `sakura me-llm` — CLI 用户也能查自己用的 LLM。
 
-- **M2 多 Agent 编排**（16/16）
-  - M2-I1 DAG 定义（[backend/app/orchestration/workflows.py](../backend/app/orchestration/workflows.py)）
-  - M2-I2 WorkflowEngine（DAG 调度 + 失败重试）
-  - M2-I3-I7 6 个 Agent（design/frontend/backend/testing/review/deployment）
-  - M2-I8 前端 DAG 可视化
-  - M2-I9 部署 Agent（Dockerfile + docker-compose）
-  - M2-I10 经验库（[backend/app/foundation/experience.py](../backend/app/foundation/experience.py)）
-  - M2-I11 ChromaDB 向量检索
-  - M2-I12 错误时检索注入 Prompt
-  - M2-I13 成功后自动记录
-  - M2-I14-I16 动态编排（greenfield/brownfield/incremental）
+#### 前端打磨
+- 樱花背景 emoji 黑块修复 — `SakuraPetals.tsx` 完全重写为纯 CSS 圆点(4 种暖色 `#C97B8A / #F5E6E9 / #9A5A68 / #E8B5BE`),`position: fixed` + `filter: blur(0.3px)` 柔化,`index.css` 新增 `.petal-dot` 关键帧。
+- 详情弹窗右上角"A"修复 — `AgentLibraryPage.tsx` 替换 `✕` Unicode 字符为 lucide `<X />` 图标,`strokeWidth 1.5`。
+- 输入框自动填 admin 修复 — `AuthPage.tsx` 3 个 input 加 `name` / `id` / `autoComplete`(注册用 `new-password`,登录用 `current-password`)属性,Chrome 等浏览器不再用保存凭据自动填充。
+- 供应商去图标 — `AgentLibraryPage.tsx` / `TeamBuilderPage.tsx` 分类标签去掉 emoji `{c.icon}`,只保留文字。
+- ProvidersPage 三步上手 CTA — 头部加"01 选厂商 → 02 填 Key → 03 用起来"引导,卡片加 `cursor-pointer` + `hover:border-ink-muted` + 右侧"点击配置"徽章。
+- Favicon 改 SVG 5 瓣粉色樱花(`#FFB7C5` 花瓣 + `#FFE4A0` 花心),`index.html` 走 `data:image/svg+xml` 内联,告别 emoji 黑块。
 
-- **M3 可用性工程化**（5/5）
-  - M3-I1 产物页 CodeBlock（[frontend/src/components/CodeBlock.tsx](../frontend/src/components/CodeBlock.tsx)，零依赖轻量高亮）
-  - M3-I2 Session 历史页（[frontend/src/pages/HistoryPage.tsx](../frontend/src/pages/HistoryPage.tsx)）
-  - M3-I3 单元测试套件（[backend/tests/](../backend/tests/)，24 个用例）
-  - M3-I4 端到端集成测试（[backend/tests/test_e2e_workflow.py](../backend/tests/test_e2e_workflow.py)）
-  - M3-I5 文档（architecture.md / usage.md）
+#### 部署准备
+- 新增 `docs/DEPLOY.md` — 12 节生产部署指南(VPS 选型 / 5 分钟 Docker / Nginx + Let's Encrypt / 密钥 / 备份 / 升级 / 监控 / 性能 / 安全清单 / 一键脚本 / 反馈)。
+- 新增 `infra/nginx-sakura.conf` — 反代 + HTTPS + HSTS + SSE 300s timeout 模板,一行 `certbot --nginx` 完成证书。
+- `backend/.env.example` 增补 `SECRET_KEY`(JWT 签名,生成命令 `openssl rand -hex 32`)+ `HOST`/`PORT` + CORS 注释。
+- `deploy.sh` 支持 `dev` / `prod` / `sandbox` / `stop` / `logs` / `clean` 6 个子命令,Docker 模式持续运行。
 
-### 测试覆盖
-- 后端：24/24 通过，零警告
-- 前端：1534 modules，0 errors / 0 warnings
-- 端到端：7 agent 全部 completed，git 7+ commits
+#### 新文档
+- `docs/OPENDESIGN_REFERENCE.md` — opendesign 风格前端设计参考手册,10 节,含色彩 token、字体加载、8 个组件契约、4 个页面 mockup、动画契约、落地清单。
+- `docs/ARCHITECTURE.md` — 后端架构(per-user engine / SSE / agent framework 借鉴)。
+- `docs/USER_LLM.md` — 用户 LLM key 流程详解(为什么需要、怎么用、怎么排查)。
+- `docs/DEPLOY.md` — 生产部署指南(本文)。
+- `CHANGELOG.md` — 本文件。
+- `LICENSE` — MIT 协议文本。
 
-## 路线图
+### 🧹 清理
+- 删除未跟踪的 `reference/` 目录(253MB)。
+- 删除未跟踪的 `skills/gstack/` 目录(1.1GB)。
+- 把根目录 `skills/`(100MB,165 个 SKILL.md 文档)加入 `.gitignore`(本地保留,IDE 参考用)。
+- 删除 HomePage 废弃的 `_LEGACY_STATS` 块,避免 lint 警告。
+- 根目录 `sakura-premium-redesign.html`(opendesign 参考)加入 `.gitignore`,不污染 git 仓库。
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| M0 | 基础设施 | ✅ |
-| M1 | 单 Agent 闭环 | ✅ |
-| M2 | 多 Agent 编排 | ✅ |
-| M3 | 可用性工程化 | ✅ |
-| M4 | 进一步增强（真实 LLM + docker build 验证） | 🚧 |
-| M5+ | 维护模式（bug 修复 + 用户反馈） | ⏳ |
+### ✅ 验证
+- 254 个供应商 API 返回正常。
+- `/me/llm-config` 返回 `source=user`, `display_name=我的 DeepSeek`。
+- chat SSE 第一个事件:`{"source": "user", "display_name": "我的 DeepSeek", "model": "deepseek-chat"}`。
+- CLI `me-llm` 输出"你的对话正在使用你自己保存的 LLM 配置"。
+- 100 个专家 / 30 个分类 / 9 个预设团队 API 全部正常。
+- 10 个前端路由全部 200(`/`、`/agents`、`/builder`、`/workspace`、`/auth`、`/history`、`/account`、`/admin`、`/providers`、`/tutorial`)。
+- TypeScript 编译通过。
+- Vite 构建成功(322.70KB JS / 28.02KB CSS / 91.12KB gzip)。
+- 后端 `/health` 返回 200,所有 healthcheck OK。
 
-## 致谢
+---
 
-设计灵感来自以下优秀开源项目：
+## 历史版本
 
-- **[OpenHands](https://github.com/All-Hands-AI/OpenHands)** — LLM Provider 抽象、Tool 系统、Docker 沙箱
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — Fork/Coordinator Agent 模式（参考其源码泄露分析）
-- **[CrewAI](https://github.com/joaomdmoura/crewAI)** — Role-based Agent 设计
-- **[LangGraph](https://github.com/langchain-ai/langgraph)** — DAG 编排
-- **[smolagents](https://github.com/huggingface/smolagents)** — CodeAct Agent 模式
-- **[DeerFlow](https://github.com/bytedance/deerflow)** — 多 Agent 协同工程
-- **[Hermes](https://github.com/)** — 错误经验积累机制
-- **[Neat-Freak](https://github.com/)** — 经验库"毕业"机制
-- **[OpenDesign](https://github.com/)** — 前端 Agent 设计参考
-- **Anthropic Skills** — 子 Agent 设计原则
+### v0.1.0 — 2026-06-23
 
-详见 [docs/references.md](./references.md)。
+首版发布,包含:
+
+- 100+ 预设专家智能体,30 个分类(创意/设计/技术/研究/策略/审核/行业/教育/金融/法律/健康/媒体/音乐/写作/数据/DevOps/商业/学术/翻译/电商/游戏/旅游/美食/体育/农业/能源/航空/环保/社交/心理)
+- 7 种协作模式(借鉴 CrewAI/AG2/Anthropic/MetaGPT/OpenAI Swarm/LangGraph/Smolagents)
+- 9 支预设团队
+- 可视化团队组建器
+- 实时 SSE 流式输出
+- 100+ LLM 供应商(LiteLLM)
+- 多端接入:Web / VS Code 插件 / CLI / 桌面应用(Electron)
+- 用户注册登录(JWT)
+- 历史记录
+- Agent 社区提交
+
+---
+
+## 贡献者
+
+- 项目维护者:[@wanan3847](https://github.com/wanan3847)
+- 贡献方式:见 [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+---
+
+## 协议
+
+本项目采用 [MIT](./LICENSE) 协议。

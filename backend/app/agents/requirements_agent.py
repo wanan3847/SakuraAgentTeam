@@ -42,16 +42,34 @@ class RequirementsAgent(Agent):
         ]
 
     async def execute(self, plan: Plan, ctx: Context) -> Artifact:
-        """Generate PRD document from user requirement."""
+        """Generate PRD document from user requirement.
+
+        有 LLM provider 时调用 LLM 生成 PRD 和 features；
+        无 LLM 或 LLM 调用失败时回退到模板逻辑。
+        """
         logger.info("requirements_agent_execute", session_id=ctx.session_id)
 
         requirement = ctx.user_requirement
 
-        # Generate PRD content (template-based for MVP)
-        prd_content = self._generate_prd(requirement)
+        prd_content: str | None = None
+        features: list[dict] | None = None
 
-        # Extract features for downstream agents
-        features = self._extract_features(requirement)
+        # 优先使用 LLM 生成 PRD 和 features
+        if self.llm is not None:
+            try:
+                prd_content, features = await self._generate_with_llm(requirement, ctx)
+            except Exception as exc:
+                logger.warning(
+                    "requirements_agent_llm_fallback",
+                    error=str(exc),
+                )
+                prd_content = None
+                features = None
+
+        # 无 LLM 或 LLM 失败时使用模板
+        if prd_content is None or features is None:
+            prd_content = self._generate_prd(requirement)
+            features = self._extract_features(requirement)
 
         artifact = Artifact(
             agent_role=self.role.value,
@@ -74,6 +92,71 @@ class RequirementsAgent(Agent):
         )
 
         return artifact
+
+    async def _generate_with_llm(
+        self, requirement: str, ctx: Context
+    ) -> tuple[str, list[dict]]:
+        """使用 LLM 生成 PRD 文档和功能列表。
+
+        返回 (prd_content, features)。解析失败时抛异常触发回退。
+        """
+        prompt = f"""你是资深需求分析专家。请根据用户需求生成产品需求文档（PRD）和功能列表。
+
+## 用户需求
+{requirement}
+
+## 输出要求
+返回一个 JSON 对象，格式如下：
+
+```json
+{{
+  "prd": "完整的 PRD markdown 内容",
+  "features": [
+    {{"title": "功能名称", "description": "功能描述"}}
+  ]
+}}
+```
+
+要求：
+- prd 字段：用 markdown 格式编写完整 PRD，以 "# Product Requirements Document (PRD)" 开头，
+  包含项目概述、目标与范围、功能需求、非功能性需求、技术栈、里程碑等章节
+- features 字段：至少包含 2 个功能，每个功能有 title 和 description 两个字符串字段
+- 只返回 JSON，不要添加其他说明文字
+"""
+        response = await self.run_agentic_loop(
+            prompt=prompt,
+            ctx=ctx,
+            system_prompt=self.build_system_prompt(ctx),
+        )
+        parsed = self.parse_json_response(response)
+
+        if not isinstance(parsed, dict):
+            raise ValueError("LLM 返回的不是 JSON 对象")
+
+        prd = parsed.get("prd")
+        raw_features = parsed.get("features")
+
+        if not isinstance(prd, str) or not prd.strip():
+            raise ValueError("LLM 返回的 prd 字段为空或非字符串")
+
+        if not isinstance(raw_features, list) or len(raw_features) == 0:
+            raise ValueError("LLM 返回的 features 字段为空或非列表")
+
+        # 校验并规范化 features 结构
+        validated: list[dict] = []
+        for f in raw_features:
+            if isinstance(f, dict) and "title" in f:
+                validated.append(
+                    {
+                        "title": str(f["title"]),
+                        "description": str(f.get("description", "")),
+                    }
+                )
+
+        if not validated:
+            raise ValueError("LLM 返回的 features 结构无效")
+
+        return prd, validated
 
     def _generate_prd(self, requirement: str) -> str:
         """Generate a PRD document from the user's requirement."""

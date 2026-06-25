@@ -1,13 +1,63 @@
 [project]
 name = "sakura-agent-team"
-version = "0.1.0"
-description = "多智能体可协同全栈 Agent 开发系统"
-readme = "README.md"
-requires-python = ">=3.11"
+version = "0.2.0"
+description = "🌸 樱花小队 — 可视化 AI 多智能体协作平台"
+readme = {text = "🌸 樱花小队 (SakuraAgentTeam) — 可视化 AI 多智能体协作平台\n\n安装: pip install sakura-agent-team\n启动: sakura start\n文档: https://github.com/wanan3847/SakuraAgentTeam", content-type = "text/plain"}
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "wanan3847"}]
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.19.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.24.0",
+    "python-multipart>=0.0.6",
+    "pyjwt>=2.8.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt<4.1.0",
+    "greenlet>=3.0.0",
+    "structlog>=23.0.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+sakura = "cli.main:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "httpx", "pytest-cov", "ruff", "pyright"]
+llm = ["litellm>=1.0.0", "openai>=1.0.0", "anthropic>=0.18.0"]
+vector = ["chromadb>=0.4.0", "sentence-transformers>=2.2.0"]
+git = ["gitpython>=3.1.0"]
+docker = ["docker>=7.0.0"]
+docs = ["pypdf>=4.0.0", "beautifulsoup4>=4.12.0"]
+all = [
+    "litellm>=1.0.0",
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "gitpython>=3.1.0",
+    "docker>=7.0.0",
+    "pypdf>=4.0.0",
+    "beautifulsoup4>=4.12.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "cli*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -25,10 +75,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app"]
+known-first-party = ["app", "cli"]
 
 [tool.pyright]
-pythonVersion = "3.11"
+pythonVersion = "3.10"
 typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"

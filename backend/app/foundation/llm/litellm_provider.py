@@ -30,9 +30,35 @@ from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 from app.core.logging import get_logger
-from app.foundation.llm.base import LLMProvider, LLMResponse, Message
+from app.foundation.llm.base import LLMProvider, LLMResponse, Message, ToolCall
 
 logger = get_logger(__name__)
+
+
+def _parse_tool_calls(message: Any) -> list[ToolCall] | None:
+    """Extract ToolCall list from a litellm/openai-style message object."""
+    raw_calls = getattr(message, "tool_calls", None)
+    if not raw_calls:
+        return None
+    result: list[ToolCall] = []
+    for tc in raw_calls:
+        func = getattr(tc, "function", None)
+        if func is None:
+            continue
+        result.append(
+            ToolCall(
+                id=getattr(tc, "id", "") or "",
+                name=getattr(func, "name", "") or "",
+                arguments=getattr(func, "arguments", "{}") or "{}",
+            )
+        )
+    return result or None
+
+
+def _split_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Drop keys we consume ourselves before forwarding to litellm."""
+    consumed = {"session_id", "agent_role"}
+    return {k: v for k, v in kwargs.items() if k not in consumed}
 
 
 class LiteLLMProvider(LLMProvider):
@@ -92,7 +118,8 @@ class LiteLLMProvider(LLMProvider):
         # 透传额外配置（temperature, max_tokens, top_p, stop, response_format 等）
         for k, v in self.config.items():
             params[k] = v
-        params.update(kwargs)
+        # 过滤掉我们自己用的 session_id / agent_role，其余透传（含 tools/tool_choice）
+        params.update(_split_kwargs(kwargs))
         return params
 
     def chat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
@@ -105,6 +132,7 @@ class LiteLLMProvider(LLMProvider):
 
         choice = response.choices[0]
         content = choice.message.content or ""
+        tool_calls = _parse_tool_calls(choice.message)
         usage = {}
         if getattr(response, "usage", None):
             usage = {
@@ -117,6 +145,7 @@ class LiteLLMProvider(LLMProvider):
             model=getattr(response, "model", self.model),
             usage=usage,
             finish_reason=getattr(choice, "finish_reason", None),
+            tool_calls=tool_calls,
         )
 
     async def achat(self, messages: list[Message], **kwargs: Any) -> LLMResponse:
@@ -129,6 +158,7 @@ class LiteLLMProvider(LLMProvider):
 
         choice = response.choices[0]
         content = choice.message.content or ""
+        tool_calls = _parse_tool_calls(choice.message)
         usage = {}
         if getattr(response, "usage", None):
             usage = {
@@ -141,6 +171,7 @@ class LiteLLMProvider(LLMProvider):
             model=getattr(response, "model", self.model),
             usage=usage,
             finish_reason=getattr(choice, "finish_reason", None),
+            tool_calls=tool_calls,
         )
 
     def stream(self, messages: list[Message], **kwargs: Any) -> Iterator[str]:
