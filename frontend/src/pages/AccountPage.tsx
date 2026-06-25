@@ -426,10 +426,17 @@ function UserCard({ user }: { user: UserInfo }) {
   )
 }
 
-function StatsCard({ stats }: { stats: { conversations?: number; submissions?: number; [k: string]: any } }) {
+function StatsCard({ stats }: { stats: { conversations?: number; submissions?: number | { total: number; pending: number; approved: number; rejected: number }; [k: string]: any } }) {
+  // 后端 /auth/stats 返回的 submissions 是对象 {total, pending, approved, rejected}
+  // 兼容老格式(纯数字)和新格式(对象)
+  const subs = stats.submissions
+  const subsTotal = typeof subs === 'object' && subs !== null ? (subs.total ?? 0) : (typeof subs === 'number' ? subs : 0)
+  const subsApproved = typeof subs === 'object' && subs !== null ? (subs.approved ?? 0) : 0
+  const subsPending = typeof subs === 'object' && subs !== null ? (subs.pending ?? 0) : 0
+
   const items = [
     { icon: <MessageSquare className="w-4 h-4" />, label: '对话数', value: stats.conversations ?? '-', color: '#C97B8A' },
-    { icon: <Inbox className="w-4 h-4" />, label: '提交数', value: stats.submissions ?? '-', color: '#6B655C' },
+    { icon: <Inbox className="w-4 h-4" />, label: '提交数', value: subsTotal, color: '#6B655C' },
   ]
   return (
     <div className="glass rounded-xl p-6 animate-fade-up">
@@ -445,6 +452,23 @@ function StatsCard({ stats }: { stats: { conversations?: number; submissions?: n
           </div>
         ))}
       </div>
+      {/* 提交细分(后端返回 {total, approved, pending, rejected} 时显示) */}
+      {typeof subs === 'object' && subs !== null && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-md border border-border bg-surface p-2">
+            <div className="font-mono text-[10px] text-ink-faint">已通过</div>
+            <div className="font-display text-lg text-sage">{subsApproved}</div>
+          </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <div className="font-mono text-[10px] text-ink-faint">审核中</div>
+            <div className="font-display text-lg text-clay">{subsPending}</div>
+          </div>
+          <div className="rounded-md border border-border bg-surface p-2">
+            <div className="font-mono text-[10px] text-ink-faint">总数</div>
+            <div className="font-display text-lg text-ink">{subsTotal}</div>
+          </div>
+        </div>
+      )}
       {Object.keys(stats).length === 0 && (
         <div className="mt-3 text-[10px] text-ink-faint">统计接口待后端提供</div>
       )}
