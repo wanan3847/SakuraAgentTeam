@@ -24,22 +24,44 @@
     },
     "files": [
       "main.js",
-      "preload.js"
+      "preload.js",
+      "bin/**",
+      "frontend-dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      },
+      {
+        "from": "frontend-dist",
+        "to": "frontend-dist"
+      }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg", "zip"],
-      "icon": "icons/sakura.icns"
+      "target": [
+        {"target": "dmg", "arch": ["arm64", "x64"]},
+        {"target": "zip", "arch": ["arm64", "x64"]}
+      ],
+      "icon": "build/icon.png"
     },
     "win": {
       "target": ["nsis", "portable"],
-      "icon": "icons/sakura.ico"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "dmg": {
+      "title": "樱花小队 SakuraAgentTeam ${version}",
+      "contents": [
+        {"x": 130, "y": 220, "type": "file"},
+        {"x": 410, "y": 220, "type": "link", "path": "/Applications"}
+      ]
     }
   }
 }

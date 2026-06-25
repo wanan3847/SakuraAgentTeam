@@ -28,20 +28,35 @@ const isDev = process.argv.includes('--dev');
 // ============================================================
 
 function startBackend() {
-  const backendDir = path.join(__dirname, '..', 'backend');
-  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+  // 优先使用打包好的独立 binary(PyInstaller)
+  // 路径: desktop/bin/sakura-backend (macOS/Linux) 或 sakura-backend.exe (Windows)
+  const ext = process.platform === 'win32' ? '.exe' : '';
+  const packagedBinary = path.join(__dirname, 'bin', `sakura-backend${ext}`);
 
-  console.log(`启动后端: ${pythonCmd} -m uvicorn app.api.main:app --port ${BACKEND_PORT}`);
+  if (require('fs').existsSync(packagedBinary)) {
+    console.log(`启动后端(打包版): ${packagedBinary}`);
+    backendProcess = spawn(packagedBinary, [
+      '--port', String(BACKEND_PORT),
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } else {
+    // Fallback:用 python3 -m uvicorn(开发模式)
+    const backendDir = path.join(__dirname, '..', 'backend');
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
 
-  backendProcess = spawn(pythonCmd, [
-    '-m', 'uvicorn',
-    'app.api.main:app',
-    '--host', '127.0.0.1',
-    '--port', String(BACKEND_PORT),
-  ], {
-    cwd: backendDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+    console.log(`启动后端(python): ${pythonCmd} -m uvicorn app.api.main:app --port ${BACKEND_PORT}`);
+
+    backendProcess = spawn(pythonCmd, [
+      '-m', 'uvicorn',
+      'app.api.main:app',
+      '--host', '127.0.0.1',
+      '--port', String(BACKEND_PORT),
+    ], {
+      cwd: backendDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  }
 
   backendProcess.stdout.on('data', (data) => {
     console.log(`[backend] ${data.toString().trim()}`);
@@ -557,18 +572,24 @@ async function createWindow() {
     backgroundColor: '#FAF8F5',
   });
 
-  // 开发模式加载 Vite dev server，生产模式加载后端静态文件
+  // 开发模式加载 Vite dev server，生产模式加载本地前端文件
   if (isDev) {
     await mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`);
     mainWindow.webContents.openDevTools();
   } else {
-    try {
-      await mainWindow.loadURL(`http://127.0.0.1:${BACKEND_PORT}`);
-    } catch (e) {
+    // 生产模式：优先用本地 frontend-dist 目录（file:// 协议）
+    const fs = require('fs');
+    const frontendDist = path.join(__dirname, 'frontend-dist', 'index.html');
+    if (fs.existsSync(frontendDist)) {
+      console.log(`加载本地前端: ${frontendDist}`);
+      await mainWindow.loadFile(frontendDist);
+    } else {
+      // Fallback：从后端 8000 端口加载
+      console.log('加载后端内置前端...');
       try {
-        await mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`);
-      } catch (e2) {
-        console.error('无法加载前端:', e2);
+        await mainWindow.loadURL(`http://127.0.0.1:${BACKEND_PORT}`);
+      } catch (e) {
+        console.error('无法加载前端:', e);
       }
     }
   }

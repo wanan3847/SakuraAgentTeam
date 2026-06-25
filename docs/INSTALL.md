@@ -205,18 +205,103 @@ code --install-extension sakura-agent-team-0.1.0.vsix
 
 ---
 
-## 6. 桌面应用(开发中)
+## 6. 桌面应用(macOS / Windows / Linux)
 
-桌面应用基于 Electron,目前 macOS / Windows / Linux 安装包(.dmg / .exe / AppImage)**尚未发布**。
-源码在 `desktop/`,打包脚本在 `packaging/`,可自行构建:
+桌面应用基于 Electron,内嵌 PyInstaller 打包好的后端 binary,**无需装 Python**。
+
+### 6.1 macOS(.dmg)
 
 ```bash
-cd desktop
-npm install
-npm run build   # 生成平台对应安装包
+# 1. 准备后端 binary
+cd backend
+pip install build pyinstaller
+pyinstaller --onefile --name sakura-backend \
+  --collect-all litellm --collect-all sqlalchemy \
+  --add-data "app:app" \
+  sakura_backend_launcher.py
+mkdir -p ../desktop/bin
+cp dist/sakura-backend ../desktop/bin/
+
+# 2. 构建前端 + electron
+cd ../frontend && npm run build
+rm -rf ../desktop/frontend-dist
+cp -r dist ../desktop/frontend-dist
+cd ../desktop && npm install && npm run build:mac
+
+# 3. 安装
+open dist/SakuraAgentTeam-0.2.0-arm64.dmg
+# 把 SakuraAgentTeam.app 拖入 Applications
+open /Applications/SakuraAgentTeam.app
 ```
 
-> 等正式版发布后会通过 GitHub Releases 提供 dmg / exe / AppImage 下载。
+产出物:
+- Apple Silicon: `desktop/dist/SakuraAgentTeam-0.2.0-arm64.dmg` (~582MB)
+- Intel: `desktop/dist/SakuraAgentTeam-0.2.0.dmg` (~587MB)
+
+### 6.2 Windows(.exe,需 Windows 环境)
+
+```powershell
+# PowerShell
+cd backend
+pip install build pyinstaller
+pyinstaller --onefile --name sakura-backend `
+  --collect-all litellm --collect-all sqlalchemy `
+  --add-data "app;app" `
+  sakura_backend_launcher.py
+New-Item -ItemType Directory -Force ..\desktop\bin
+Copy-Item dist\sakura-backend.exe ..\desktop\bin\
+
+cd ..\frontend
+npm run build
+Remove-Item -Recurse -Force ..\desktop\frontend-dist
+Copy-Item -Recurse dist ..\desktop\frontend-dist
+
+cd ..\desktop
+npm install
+npm run build:win
+
+# 产物:dist\SakuraAgentTeam-Setup-0.2.0.exe + 绿色版
+```
+
+### 6.3 Linux(AppImage / deb)
+
+```bash
+cd desktop && npm install && npm run build:linux
+# 产物:dist/SakuraAgentTeam-0.2.0.AppImage
+```
+
+---
+
+## 7. VS Code 插件(.vsix)
+
+```bash
+cd vscode-extension
+npm install
+npx vsce package
+# 产物:sakura-agent-team-0.2.0.vsix (~16KB)
+
+# 安装
+code --install-extension sakura-agent-team-0.2.0.vsix
+# 或 VS Code → 扩展 → ⋯ → 从 VSIX 安装
+```
+
+---
+
+## 8. CLI 命令行(wheel 包)
+
+```bash
+cd backend
+pip install build
+python3 -m build --wheel
+
+# 产物:dist/sakura_agent_team-0.2.0-py3-none-any.whl (~252KB)
+
+# 本地装
+pip install --user dist/sakura_agent_team-0.2.0-py3-none-any.whl
+sakura --version  # 0.2.0
+```
+
+包含 11 个子命令:`serve` / `frontend` / `start` / `chat` / `agents` / `teams` / `create-team` / `history` / `login` / `register` / `install`。
 
 ---
 

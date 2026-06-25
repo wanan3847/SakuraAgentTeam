@@ -11,8 +11,34 @@ SakuraAgentTeam 项目的所有重要变更记录。
 
 ### ✨ 新增
 
+#### 本地构建产物(4 种形式)
+- **macOS 桌面 .dmg** — `desktop/dist/SakuraAgentTeam-0.2.0-arm64.dmg` (582MB,Apple Silicon) + `SakuraAgentTeam-0.2.0.dmg` (587MB,Intel),包含内嵌 246MB `sakura-backend` PyInstaller 单文件
+- **VS Code 插件 .vsix** — `vscode-extension/sakura-agent-team-0.2.0.vsix` (16KB)
+- **CLI wheel 包** — `backend/dist/sakura_agent_team-0.2.0-py3-none-any.whl` (252KB),`pip install` 后 `sakura --version` 0.2.0,11 个子命令
+- **CLI 源码包** — `backend/dist/sakura_agent_team-0.2.0.tar.gz` (218KB)
+- 全部实测:CLI wheel 装上能跑、.dmg 挂载 + 校验通过 + 内含 246MB binary
+
+#### 桌面应用自包含化
+- 新增 `backend/sakura_backend_launcher.py` — PyInstaller 入口 wrapper(`if __name__ == '__main__'` 启 uvicorn)
+- `desktop/main.js` 改造 `startBackend()` 优先用 `bin/sakura-backend` 打包版,fallback `python3 -m uvicorn`
+- `desktop/main.js` 改造 `createWindow()` production 模式用 `loadFile('frontend-dist/index.html')` 走 file:// 协议,不再依赖后端 serve 前端
+- `desktop/package.json` 增 `files: [main.js, preload.js, bin/**, frontend-dist/**]` + `extraResources` 让 .app bundle 时包含所有运行时资产
+- `desktop/build/icon.icns` (562KB,8 个分辨率) 从 `frontend/public/favicon-192.png` 派生
+- 用户双击 .dmg 拖入 Applications,**不需装 Python** 即可启动完整应用
+
+#### 下载页面更新
+- `TutorialPage.tsx` 把所有「开发中」标签删除
+  - macOS:3 步构建(后端 binary → electron bundle → 装 .dmg → 启动)
+  - Windows:3 种方案(WSL2 / PowerShell / 自建 .exe)
+  - Linux:加 AppImage 自建命令
+  - VS Code:3 步(打包 .vsix → 安装 → 配置)
+  - CLI:加 wheel 包安装步骤
+- `docs/INSTALL.md` 加完整 macOS/Windows/Linux/VSCode/CLI 构建指南
+
+#### .gitignore 完善
+- 加 `desktop/frontend-dist/` `desktop/bin/` `desktop/build/` — 几百 MB 产物不进 git
+
 #### 头像上传功能
-- 新增 `POST /api/v1/auth/me/avatar` — multipart/form-data 上传头像图片,返回 data: URL 直接 `<img src>` 显示
 - 后端限制:2MB,PNG/JPEG/WebP/GIF,存储到 `data/avatars/{user_id}_{timestamp}.{ext}`
 - `User.avatar` 字段从 `String(10)` 改为 `Text`,支持存颜色 hex / emoji / data: URL
 - 前端 AccountPage 新增上传 UI:点击「上传图片」按钮 → 选择文件 → 预览 → 上传 → 自动刷新
@@ -107,6 +133,15 @@ SakuraAgentTeam 项目的所有重要变更记录。
 - CLI `me-llm` 输出「你的对话正在使用你自己保存的 LLM 配置」
 - 100 个专家 / 30 个分类 / 9 个预设团队 API 全部正常
 - Vite 构建成功(322.70KB JS / 28.02KB CSS / 91.12KB gzip)
+- 后端 `health` 返回 200,所有 healthcheck OK
+- **本地构建产物(本轮)**:
+  - `python3 -m build --wheel` 通过,生成 .whl + .tar.gz
+  - `pip install --user dist/*.whl` 成功,`sakura --version` 输出 0.2.0
+  - `npx vsce package` 成功,生成 16KB .vsix
+  - `npx electron-builder --mac` 成功,生成 582MB(arm64)+ 587MB(x64)两个 .dmg
+  - `hdiutil verify SakuraAgentTeam-0.2.0-arm64.dmg` CRC32 校验通过
+  - `hdiutil attach` 成功,`SakuraAgentTeam.app/Contents/Resources/bin/sakura-backend` (246MB) 在内
+  - `desktop/bin/sakura-backend` 启动后 `/health` 返回 healthy
 - 服务器 47.103.96.182 ping 可达,HTTP 502(Nginx 待配置上游)
 - `bash -n scripts/install.sh && bash -n scripts/deploy-to-team.sh` 语法检查通过
 
