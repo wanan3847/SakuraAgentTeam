@@ -139,6 +139,7 @@ interface DownloadMethod {
   title: string
   platform: string
   req?: string
+  note?: string
   iconName: 'Globe' | 'Apple' | 'Monitor' | 'Terminal' | 'Code2' | 'Container' | 'Download' | 'GitBranch'
   blocks: { name: string; cmd: string; note?: string }[]
   verify: string
@@ -200,60 +201,72 @@ const DOWNLOAD_SECTIONS: DownloadMethod[] = [
     blocks: [
       { name: '从 wheel 安装(本机或 CI)', cmd: 'cd SakuraAgentTeam/backend\npython3 -m build --wheel\npip install --user dist/sakura_agent_team-0.2.0-py3-none-any.whl' },
       { name: '从源码开发模式安装', cmd: 'git clone https://github.com/wanan3847/SakuraAgentTeam.git\ncd SakuraAgentTeam/backend\npip install -e .' },
-      { name: '启动 REPL', cmd: 'sakura\n# 输入 / 查看所有 25+ 命令\n# 输入 task "你的需求" 开始任务' },
+      { name: '启动 REPL', cmd: 'sakura' },
+      { name: '   ↑ REPL 里输入 / 显示所有 25+ 命令,输入 task "你的需求" 开始任务', cmd: 'echo "无命令,纯 REPL 交互"' },
       { name: '直接运行', cmd: 'cd SakuraAgentTeam/backend\npython -m app.cli.main' },
     ],
-    verify: 'sakura --version  # 应输出版本号 0.2.0',
+    verify: 'sakura --version  (应输出 sakura 0.2.0)',
   },
   {
     id: 'macos',
     title: 'macOS 桌面端',
     platform: 'macOS 11+ (Big Sur)',
-    req: 'Apple Silicon (M1/M2/M3/M4) 或 Intel x64',
+    req: 'Apple Silicon (M1/M2/M3/M4) 或 Intel x64;需要本机已装 Python 3.10+(应用首次启动会用 Python 兜底启动后端)',
     iconName: 'Apple',
+    note: '⚠️ 桌面端是 UI 壳,内嵌后端通过 Python 兜底启动(PyInstaller 6.x 在 macOS 14+ arm64 有 silent fail 已知问题)。如果只是想用,推荐用上面的「Web 版」或「一键安装脚本」。',
     blocks: [
-      { name: '1. 本机构建 .dmg', cmd: 'cd desktop\nnpm install\ncp ../backend/dist/sakura-backend bin/  # 见下方 CLI wheel 步骤\nnpm run build:mac' },
-      { name: '2. 安装:双击 .dmg 拖入 Applications', cmd: 'open desktop/dist/SakuraAgentTeam-0.2.0-arm64.dmg\n# 把 SakuraAgentTeam.app 拖到 Applications 文件夹' },
-      { name: '3. 启动应用', cmd: 'open /Applications/SakuraAgentTeam.app\n# 首次启动会同时启动内嵌后端(8000 端口)和前端 UI' },
+      { name: '1. 打开 .dmg 安装器', cmd: 'open release/SakuraAgentTeam-0.2.0-arm64.dmg' },
+      { name: '2. 在打开的窗口里把 SakuraAgentTeam.app 拖到 Applications 文件夹', cmd: 'cp -R "/Volumes/SakuraAgentTeam 0.2.0/SakuraAgentTeam.app" /Applications/' },
+      { name: '3. 启动应用', cmd: 'open /Applications/SakuraAgentTeam.app' },
+      { name: '4. 如果系统提示「无法打开,因为它来自身份不明的开发者」,执行以下命令授权', cmd: 'xattr -cr /Applications/SakuraAgentTeam.app\nopen /Applications/SakuraAgentTeam.app' },
+      { name: '5. 应用启动后会自检 Python 3.10+ 并启动后端(默认 18800 端口)', cmd: 'python3 --version\nbrew install python@3.12   # 如果没装 Python' },
     ],
-    verify: '打开应用后看到樱花小队主界面即成功。',
+    verify: '打开应用后看到樱花小队主界面即成功。也可以用 curl 验证后端:curl http://localhost:18800/health',
   },
   {
     id: 'windows',
-    title: 'Windows 桌面端(暂未构建)',
-    platform: 'Windows 10/11',
-    req: '需 Windows + Node 18+ + Python 3.11+',
+    title: 'Windows 桌面端',
+    platform: 'Windows 10/11 (x64)',
+    req: '需要 Node 18+;桌面端是 UI 壳,内嵌后端通过 Python 3.10+ 兜底启动',
     iconName: 'Monitor',
+    note: '当前没有预编译 .exe(在 Mac 上交叉编译需要 wine,生成的 .exe 缺数字签名会有 SmartScreen 警告)。下方提供 3 种可行方案。',
     blocks: [
-      { name: '当前可用方案:PowerShell 一键安装', cmd: 'irm https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.ps1 | iex\n# 装完后浏览器打开 http://localhost:5173' },
-      { name: '在 Windows 上自建 .exe', cmd: 'cd desktop\nnpm install\ncopy ..\\backend\\dist\\sakura-backend.exe bin\\\nnpm run build:win' },
-      { name: 'WSL2 方案', cmd: 'wsl --install\nwsl curl -fsSL https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.sh | bash' },
+      { name: '方案 A — 推荐:用 PowerShell 一键脚本跑 Web 版(0 依赖打包)', cmd: 'irm https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.ps1 | iex' },
+      { name: '方案 B — 在 Windows 上自建 .exe 桌面端', cmd: 'cd SakuraAgentTeam\\desktop\nnpm install\nnpm run build:win' },
+      { name: '方案 C — 用 GitHub Actions 跨平台 CI 自动构建', cmd: 'gh workflow run desktop-build.yml --ref main' },
+      { name: '   ↑ 产物会在 https://github.com/wanan3847/SakuraAgentTeam/actions 下的 Artifacts 里', cmd: 'open https://github.com/wanan3847/SakuraAgentTeam/actions' },
+      { name: 'WSL2 方案(纯 Linux 子系统)', cmd: 'wsl --install\nwsl -- curl -fsSL https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.sh | bash' },
     ],
-    verify: '浏览器打开 http://localhost:5173 看到首页即成功。',
+    verify: 'Web 版:浏览器打开 http://localhost:5173 看到首页即成功。桌面端:双击 .exe 后看到樱花小队主界面。',
   },
   {
     id: 'linux',
     title: 'Linux 桌面端',
     platform: 'Ubuntu 22.04+ / Debian 12+ / Fedora 39+ / Arch',
+    req: '需要 Node 18+ 和 Python 3.10+',
     iconName: 'Terminal',
     blocks: [
       { name: '一键脚本(推荐)', cmd: 'curl -fsSL https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.sh | bash' },
-      { name: 'Docker', cmd: 'git clone https://github.com/wanan3847/SakuraAgentTeam.git\ncd SakuraAgentTeam/infra && docker compose up -d' },
-      { name: '自建 AppImage(规划中)', cmd: 'cd desktop && npm install && npm run build:linux\n# 产物:desktop/dist/SakuraAgentTeam-0.2.0.AppImage' },
+      { name: 'Docker', cmd: 'git clone https://github.com/wanan3847/SakuraAgentTeam.git\ncd SakuraAgentTeam/infra && docker compose up -d --build' },
+      { name: '自建 AppImage', cmd: 'cd desktop && npm install && npm run build:linux' },
     ],
-    verify: 'curl http://localhost:8000/health  # 返回 healthy 即成功',
+    verify: 'curl http://localhost:8000/health  (应返回 healthy)',
   },
   {
     id: 'vscode',
     title: 'VS Code 插件',
     platform: 'VS Code 1.85+',
+    req: '需要先装 VS Code(https://code.visualstudio.com/)',
     iconName: 'Code2',
     blocks: [
       { name: '1. 本机构建 .vsix', cmd: 'cd vscode-extension\nnpm install\nnpx vsce package' },
-      { name: '2. 安装插件', cmd: 'code --install-extension sakura-agent-team-0.2.0.vsix\n# 或在 VS Code → 扩展 → ⋯ → 从 VSIX 安装' },
-      { name: '3. 配置后端地址', cmd: '# VS Code 设置 → 搜索"樱花小队"\n# sakura.serverUrl: http://localhost:8000\n# sakura.token: 你的 JWT token' },
+      { name: '2. 方式 A — 在 VS Code 里从 VSIX 安装(推荐,不用命令行)', cmd: 'open -a "Visual Studio Code" vscode-extension/sakura-agent-team-0.2.0.vsix' },
+      { name: '   ↑ VS Code 会自动弹出对话框,点「安装」即可', cmd: 'echo "无命令,纯 UI 操作"' },
+      { name: '2. 方式 B — 命令行安装(需先把 code 命令加到 PATH)', cmd: 'code --install-extension vscode-extension/sakura-agent-team-0.2.0.vsix' },
+      { name: '   ↑ 没装 code 命令的话:VS Code → Cmd+Shift+P → 「Shell Command: Install code command in PATH」', cmd: 'echo "无命令,在 VS Code 里操作"' },
+      { name: '3. 配置后端地址', cmd: 'sakura.serverUrl: http://localhost:8000\nsakura.token: 你的 JWT token' },
     ],
-    verify: '安装后在 VS Code 命令面板(Cmd/Ctrl+Shift+P)输入"sakura"看到命令即成功。',
+    verify: '安装后在 VS Code 命令面板(Cmd/Ctrl+Shift+P)输入"樱花"看到命令即成功。',
   },
 ]
 
@@ -1043,6 +1056,11 @@ function DownloadTab() {
                   </p>
                 </div>
               </div>
+              {s.note && (
+                <div className="mb-3 px-3 py-2 rounded-md bg-clay/8 border border-clay/20">
+                  <p className="text-[11px] text-clay leading-relaxed">{s.note}</p>
+                </div>
+              )}
               <div>
                 {s.blocks.map((b, j) => (
                   <CmdBlock key={j} name={b.name} cmd={b.cmd} note={b.note} />

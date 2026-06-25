@@ -19,7 +19,8 @@ let mainWindow = null;
 let backendProcess = null;
 let tray = null;
 
-const BACKEND_PORT = process.env.SAKURA_BACKEND_PORT || 8000;
+// 端口优先级:SAKURA_BACKEND_PORT > SAKURA_PORT > 18800(避开 8000 避免冲突)
+const BACKEND_PORT = process.env.SAKURA_BACKEND_PORT || process.env.SAKURA_PORT || 18800;
 const FRONTEND_PORT = process.env.SAKURA_FRONTEND_PORT || 5173;
 const isDev = process.argv.includes('--dev');
 
@@ -28,47 +29,137 @@ const isDev = process.argv.includes('--dev');
 // ============================================================
 
 function startBackend() {
-  // 优先使用打包好的独立 binary(PyInstaller)
-  // 路径: desktop/bin/sakura-backend (macOS/Linux) 或 sakura-backend.exe (Windows)
+  // 启动后端 — 多层 fallback
+  // 1. 优先用打包好的独立 binary(development: __dirname/bin/, packaged: process.resourcesPath/bin/)
+  // 2. 退回 python3 -m uvicorn(用户已装 Python 时)
   const ext = process.platform === 'win32' ? '.exe' : '';
-  const packagedBinary = path.join(__dirname, 'bin', `sakura-backend${ext}`);
-
-  if (require('fs').existsSync(packagedBinary)) {
-    console.log(`启动后端(打包版): ${packagedBinary}`);
-    backendProcess = spawn(packagedBinary, [
-      '--port', String(BACKEND_PORT),
-    ], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+  let binaryPath;
+  if (app.isPackaged) {
+    binaryPath = path.join(process.resourcesPath, 'bin', `sakura-backend${ext}`);
   } else {
-    // Fallback:用 python3 -m uvicorn(开发模式)
-    const backendDir = path.join(__dirname, '..', 'backend');
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-
-    console.log(`启动后端(python): ${pythonCmd} -m uvicorn app.api.main:app --port ${BACKEND_PORT}`);
-
-    backendProcess = spawn(pythonCmd, [
-      '-m', 'uvicorn',
-      'app.api.main:app',
-      '--host', '127.0.0.1',
-      '--port', String(BACKEND_PORT),
-    ], {
-      cwd: backendDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    binaryPath = path.join(__dirname, 'bin', `sakura-backend${ext}`);
   }
 
-  backendProcess.stdout.on('data', (data) => {
-    console.log(`[backend] ${data.toString().trim()}`);
-  });
+  const trySpawn = (cmd, args, opts) => {
+    console.log(`启动后端: ${cmd} ${args.join(' ')}`);
+    try {
+      const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
+      proc.on('error', (err) => {
+        console.error(`[backend spawn error] ${err.message}`);
+      });
+      return proc;
+    } catch (e) {
+      console.error(`[backend spawn exception] ${e.message}`);
+      return null;
+    }
+  };
 
-  backendProcess.stderr.on('data', (data) => {
-    console.error(`[backend] ${data.toString().trim()}`);
-  });
+  if (require('fs').existsSync(binaryPath)) {
+    try { require('fs').chmodSync(binaryPath, 0o755); } catch (e) {}
+    backendProcess = trySpawn(binaryPath, ['--port', String(BACKEND_PORT)], {
+      env: { ...process.env, SAKURA_PORT: String(BACKEND_PORT) },
+    });
+    if (backendProcess) {
+      // 8 秒后看 binary 是否还活着,死了就 fallback
+      let fallbackTriggered = false;
+      setTimeout(() => {
+        if (fallbackTriggered) return;
+        // 进程死了 或者 端口没在 listen
+        const stillAlive = backendProcess && !backendProcess.killed && backendProcess.exitCode === null;
+        if (!stillAlive) {
+          fallbackTriggered = true;
+          console.warn('[backend] 打包版启动失败,fallback 到 python3 -m uvicorn');
+          try { backendProcess.kill(); } catch (e) {}
+          startBackendPython();
+        } else {
+          // 进程活着,看端口是否在 listen
+          const net = require('net');
+          const sock = net.createConnection(BACKEND_PORT, '127.0.0.1');
+          let connected = false;
+          sock.on('connect', () => { connected = true; sock.end(); });
+          sock.on('error', () => {});
+          setTimeout(() => {
+            if (fallbackTriggered) return;
+            if (!connected) {
+              fallbackTriggered = true;
+              console.warn('[backend] 打包版未在端口 listen,fallback');
+              try { backendProcess.kill(); } catch (e) {}
+              startBackendPython();
+            }
+          }, 500);
+        }
+      }, 8000);
+      return;
+    }
+  }
+  startBackendPython();
+}
 
-  backendProcess.on('exit', (code) => {
-    console.log(`后端进程退出 (code: ${code})`);
-  });
+function startBackendPython() {
+  const backendDir = path.join(__dirname, '..', 'backend');
+  // macOS .app 进程环境 PATH 不含 /usr/local/bin / /opt/homebrew/bin
+  // 而且 macOS 沙盒会忽略 spawn 时的 PATH,必须用**绝对路径**
+  const pythonAbsPaths = process.platform === 'win32'
+    ? [
+        process.env.LOCALAPPDATA + '\\Programs\\Python\\Python312\\python.exe',
+        process.env.LOCALAPPDATA + '\\Programs\\Python\\Python311\\python.exe',
+        'C:\\Python312\\python.exe',
+        'C:\\Python311\\python.exe',
+        'python.exe',
+        'python3.exe',
+      ]
+    : [
+        // 官方 Python (macOS 装 python.org 安装包的位置)
+        '/Library/Frameworks/Python.framework/Versions/3.14/bin/python3',
+        '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3',
+        '/Library/Frameworks/Python.framework/Versions/3.12/bin/python3',
+        '/Library/Frameworks/Python.framework/Versions/3.11/bin/python3',
+        '/Library/Frameworks/Python.framework/Versions/3.10/bin/python3',
+        '/Library/Frameworks/Python.framework/Versions/Current/bin/python3',
+        // Homebrew
+        '/opt/homebrew/bin/python3',
+        '/opt/homebrew/bin/python3.12',
+        '/opt/homebrew/bin/python3.11',
+        '/usr/local/bin/python3',
+        // MacPorts
+        '/opt/local/bin/python3',
+        // pyenv
+        process.env.HOME + '/.pyenv/shims/python3',
+        // pipx
+        process.env.HOME + '/.local/bin/python3',
+        // 最后用命令名兜底(可能从 spawn env 找到)
+        'python3',
+      ];
+
+  for (const cmd of pythonAbsPaths) {
+    if (!cmd) continue;
+    try {
+      // 验证 binary 存在,绝对路径不存在直接跳
+      if (cmd.startsWith('/') && !require('fs').existsSync(cmd)) continue;
+      backendProcess = spawn(cmd, [
+        '-m', 'uvicorn',
+        'app.api.main:app',
+        '--host', '127.0.0.1',
+        '--port', String(BACKEND_PORT),
+      ], { cwd: backendDir, stdio: ['ignore', 'pipe', 'pipe'] });
+      backendProcess.on('error', (err) => {
+        console.error(`[backend python error] ${cmd}: ${err.message}`);
+      });
+      backendProcess.stdout.on('data', (d) => console.log(`[backend] ${d.toString().trim()}`));
+      backendProcess.stderr.on('data', (d) => console.error(`[backend] ${d.toString().trim()}`));
+      console.log(`启动后端(python): ${cmd} -m uvicorn app.api.main:app --port ${BACKEND_PORT}`);
+      return;
+    } catch (e) {
+      continue;
+    }
+  }
+  const errMsg = '[backend] 未找到 Python 3.10+。请安装(brew install python@3.12)或从 python.org 下载';
+  console.error(errMsg);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.executeJavaScript(
+      `alert(${JSON.stringify(errMsg + '\\n\\n或者从 https://team.041126.xyz 使用 Web 版')})`
+    );
+  }
 }
 
 function stopBackend() {

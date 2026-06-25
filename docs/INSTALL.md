@@ -207,16 +207,16 @@ code --install-extension sakura-agent-team-0.1.0.vsix
 
 ## 6. 桌面应用(macOS / Windows / Linux)
 
-桌面应用基于 Electron,内嵌 PyInstaller 打包好的后端 binary,**无需装 Python**。
+桌面应用基于 Electron,UI 壳 + 内嵌后端。**注意:macOS 14+ arm64 的 PyInstaller 6.x 有 silent fail 已知问题,实际跑时应用会用本机 Python 3.10+ 兜底启动后端**;Windows 在 Mac 上交叉编译需要 wine 且 .exe 缺数字签名,推荐用 GitHub Actions 自动构建。
 
-### 6.1 macOS(.dmg)
+### 6.1 macOS(.dmg,需 Python 3.10+ 兜底)
 
 ```bash
-# 1. 准备后端 binary
+# 1. 准备后端 binary(可选 — 失败时应用会自动 fallback 到 Python)
 cd backend
 pip install build pyinstaller
 pyinstaller --onefile --name sakura-backend \
-  --collect-all litellm --collect-all sqlalchemy \
+  --collect-all aiosqlite --collect-all sqlalchemy \
   --add-data "app:app" \
   sakura_backend_launcher.py
 mkdir -p ../desktop/bin
@@ -231,21 +231,30 @@ cd ../desktop && npm install && npm run build:mac
 # 3. 安装
 open dist/SakuraAgentTeam-0.2.0-arm64.dmg
 # 把 SakuraAgentTeam.app 拖入 Applications
+
+# 4. 启动(应用会自动检测 Python 3.10+ 并启动后端在 18800 端口)
 open /Applications/SakuraAgentTeam.app
 ```
+
+**如果 .app 启动后无反应**:
+- 检查 `python3 --version` 是否 ≥ 3.10
+- 如没装:`brew install python@3.12`
+- 应用启动后会在 18800 端口启后端,UI 加载本地 `app.asar/frontend-dist/index.html`
 
 产出物:
 - Apple Silicon: `desktop/dist/SakuraAgentTeam-0.2.0-arm64.dmg` (~582MB)
 - Intel: `desktop/dist/SakuraAgentTeam-0.2.0.dmg` (~587MB)
 
-### 6.2 Windows(.exe,需 Windows 环境)
+### 6.2 Windows(.exe,推荐用 GitHub Actions)
+
+#### 方案 A — 在 Windows 上自建(原生,推荐)
 
 ```powershell
-# PowerShell
-cd backend
+# 在 Windows 10/11 机器上
+cd SakuraAgentTeam\backend
 pip install build pyinstaller
 pyinstaller --onefile --name sakura-backend `
-  --collect-all litellm --collect-all sqlalchemy `
+  --collect-all aiosqlite --collect-all sqlalchemy `
   --add-data "app;app" `
   sakura_backend_launcher.py
 New-Item -ItemType Directory -Force ..\desktop\bin
@@ -260,14 +269,46 @@ cd ..\desktop
 npm install
 npm run build:win
 
-# 产物:dist\SakuraAgentTeam-Setup-0.2.0.exe + 绿色版
+# 产物:dist\SakuraAgentTeam-Setup-0.2.0.exe (nsis 安装器) + 绿色版
+```
+
+#### 方案 B — GitHub Actions 自动跨平台(无需 Windows 机器)
+
+仓库已配 `.github/workflows/desktop-build.yml`,push 触发自动在 macOS / Windows / Linux runner 上同时构建 .dmg / .exe / AppImage。tag 触发会自动 attach 到 GitHub Release。
+
+```bash
+# 触发方式 1:push 到 main
+git push origin main
+# → 30 分钟后看 https://github.com/wanan3847/SakuraAgentTeam/actions 的 Artifacts
+
+# 触发方式 2:打 tag
+git tag v0.2.1
+git push origin v0.2.1
+# → 自动创建 https://github.com/wanan3847/SakuraAgentTeam/releases/tag/v0.2.1 含全部产物
+```
+
+#### 方案 C — PowerShell 一键脚本(Web 版,0 依赖)
+
+如果只是要跑,不用桌面端外壳,直接用 Web 版:
+
+```powershell
+irm https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.ps1 | iex
+# 浏览器打开 http://localhost:5173
+```
+
+#### ⚠️ 方案 D(不推荐)— 在 Mac 上交叉编译 .exe
+
+```bash
+brew install --cask wine-stable
+cd desktop && npm install && npm run build:win
+# 问题:生成的 .exe 缺数字签名,Windows SmartScreen 会弹警告
 ```
 
 ### 6.3 Linux(AppImage / deb)
 
 ```bash
 cd desktop && npm install && npm run build:linux
-# 产物:dist/SakuraAgentTeam-0.2.0.AppImage
+# 产物:dist/SakuraAgentTeam-0.2.0.AppImage + .deb
 ```
 
 ---

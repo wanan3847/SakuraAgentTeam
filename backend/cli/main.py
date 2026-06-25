@@ -56,6 +56,22 @@ app = typer.Typer(
     add_completion=False,
 )
 
+
+def _version_callback(value: bool) -> None:
+    """`sakura --version` / `sakura -V` 回调。"""
+    if value:
+        typer.echo(f"sakura {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _root(
+    version: bool = typer.Option(
+        False, "--version", "-V", help="打印版本号后退出", callback=_version_callback, is_eager=True
+    ),
+) -> None:
+    """SakuraAgentTeam CLI — 用 `sakura <command> --help` 查看每个子命令。"""
+
 config_app = typer.Typer(help="管理 CLI 配置（~/.sakura/config.toml）")
 app.add_typer(config_app, name="config")
 

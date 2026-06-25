@@ -1,0 +1,184 @@
+name: Desktop Build
+
+# 跨平台构建桌面端(electron-builder)
+# 触发:push to main / 手动 / tag v*
+# 产物:actions/upload-artifact 上传到 Artifacts;tag 时自动 attach 到 GitHub Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '目标平台 (macos / windows / linux / all)'
+        required: false
+        default: 'all'
+
+permissions:
+  contents: write  # tag 触发时上传到 Release
+
+jobs:
+  # ========== macOS (.dmg + .zip) ==========
+  build-macos:
+    name: Build macOS Desktop
+    runs-on: macos-14  # Apple Silicon runner(M1)
+    if: github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'macos'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../desktop/frontend-dist
+          cp -R dist/* ../desktop/frontend-dist/
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build macOS .dmg + .zip
+        working-directory: desktop
+        run: |
+          # 关掉 code signing(开源项目无 Apple Developer ID)
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          npx electron-builder --mac --publish never
+
+      - name: Upload .dmg artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SakuraAgentTeam-macos
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/latest-mac.yml
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ========== Windows (.exe nsis + portable) ==========
+  build-windows:
+    name: Build Windows Desktop
+    runs-on: windows-latest
+    if: github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'windows'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          mkdir ..\desktop\frontend-dist
+          xcopy /E /I /Y dist\* ..\desktop\frontend-dist\
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Windows .exe
+        working-directory: desktop
+        env:
+          # 关掉 code signing(开源项目无 EV 证书)
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win --publish never
+
+      - name: Upload .exe artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SakuraAgentTeam-windows
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/latest.yml
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ========== Linux (.AppImage + .deb) ==========
+  build-linux:
+    name: Build Linux Desktop
+    runs-on: ubuntu-22.04
+    if: github.event.inputs.target == '' || github.event.inputs.target == 'all' || github.event.inputs.target == 'linux'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../desktop/frontend-dist
+          cp -R dist/* ../desktop/frontend-dist/
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Linux AppImage + deb
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --linux --publish never
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SakuraAgentTeam-linux
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/latest-linux.yml
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ========== Release:tag 触发时把所有产物 attach 到 GitHub Release ==========
+  release:
+    name: Upload to GitHub Release
+    needs: [build-macos, build-windows, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Show artifacts
+        run: ls -laR artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.exe
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/latest*.yml
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

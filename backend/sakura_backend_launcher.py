@@ -1,15 +1,18 @@
 """sakura-backend 启动入口 — PyInstaller 专用
 
 Usage:
-    python -m sakura_backend_launcher
+    python sakura_backend_launcher.py
     或 PyInstaller 打包后:
         ./sakura-backend
 """
 import sys
 import os
 
-# 让 uvicorn 能找到 app 模块
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# PyInstaller 解包目录(sys._MEIPASS)已经自动在 sys.path 前面,
+# 所以 `from app.api.main import app` 在打包模式下能直接工作。
+# 我们只在非打包模式(开发模式)下手动加 backend 目录到 sys.path。
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import uvicorn
 

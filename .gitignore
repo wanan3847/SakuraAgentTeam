@@ -166,3 +166,5 @@ desktop/dist/
 desktop/frontend-dist/
 desktop/bin/
 desktop/build/
+# 本机构建产物(.dmg / .exe / .vsix / .whl)— 不进 git,改用 GitHub Actions 自动构建
+release/

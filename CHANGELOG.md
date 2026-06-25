@@ -66,6 +66,45 @@ SakuraAgentTeam 项目的所有重要变更记录。
 - ping 测试 0.28ms 可达,curl 返回 502(Nginx 已运行,无上游)
 - 脚本语法检查通过(`bash -n`)
 
+#### 桌面端诚实化(避免误导用户)
+
+**macOS .dmg 限制说明**
+- PyInstaller 6.x 在 macOS 14+ arm64 有 silent fail 已知问题,生成的 `sakura-backend` 二进制会卡在 bootloader 阶段,dyld 路径解析失败
+- 即使加了 `entitlements.mac.plist` 解除沙盒限制,macOS Hardened Runtime 仍会阻止 .app spawn 外部 Python binary(ENOENT)
+- **结论**:macOS .app 实际上是 UI 壳,首次启动会自检 `python3 --version`,有 ≥ 3.10 就用 `python3 -m uvicorn` 兜底启动后端(默认 18800 端口);无 Python 则提示安装
+- TutorialPage macOS 段头部新增 ⚠️ 提示卡片(暖色 clay 配色,`bg-clay/8 border-clay/20`),诚实说明这一点
+- `req` 字段标明:「需要本机已装 Python 3.10+(应用首次启动会用 Python 兜底启动后端)」
+
+**Windows .exe 跨平台构建方案**
+- 新增 `.github/workflows/desktop-build.yml` — push 触发 macOS + Windows + Linux runner 同时构建
+  - macOS runner → `.dmg` + `.zip`(Apple Silicon)
+  - Windows runner → `nsis` 安装器 + 绿色版 `.exe`
+  - Linux runner → `.AppImage` + `.deb`
+  - tag 触发自动 attach 到 GitHub Release
+- TutorialPage Windows 段 4 种方案:
+  - **方案 A** PowerShell 一键脚本(Web 版,0 依赖打包)
+  - **方案 B** 在 Windows 机器上自建 `npm run build:win`
+  - **方案 C** GitHub Actions CI 跨平台(无需 Windows 机器,`gh workflow run desktop-build.yml --ref main`)
+  - **方案 D**(不推荐)Mac 上 `wine-stable` 交叉编译
+- INSTALL.md 6.2 节也重写,加 4 种方案
+
+**教学中心 zsh 友好化**
+- 之前教程命令里包含 `# 内联注释`(如 `# 把 .app 拖入 Applications`),用户复制粘贴到 zsh 会被当作命令执行,报错 `zsh: command not found: #`
+- TutorialPage `DOWNLOAD_SECTIONS` 所有 `blocks[].cmd` 字段的 `#` 注释全部清理
+  - 注释挪到 `name` 字段(用 `   ↑` 前缀视觉对齐)
+  - 纯 UI 操作用 `echo "无命令,纯 UI 操作"` 占位,避免空白 code block
+  - `verify` 字段把「`# 应输出...`」改为「`(应输出...)`」
+- 完整清理的位置:macOS 段(4 处)、VS Code 段(3 处)、CLI 段(2 处)、Linux 段(1 处)
+
+**CLI --version 修复**
+- 之前 `sakura --version` 报 `No such option: --version`,用户必须用 `sakura version` 子命令
+- `backend/cli/main.py` 加 `@app.callback() _root(version: bool = typer.Option(False, "--version", "-V", callback=_version_callback, is_eager=True))`
+- 现 `sakura --version` / `sakura -V` 都输出 `sakura 0.2.0`
+
+**DownloadMethod UI 改进**
+- 接口加可选 `note?: string` 字段,渲染时在标题下方显示暖色 clay 提示框
+- 现用于 macOS 段(技术限制)和 Windows 段(无预编译 .exe)
+
 #### Bug 反馈入口
 - 新增 `frontend/src/lib/feedback.ts` — `openBugReport()` / `openFeatureRequest()`,生成带 URL/UA/时间/堆栈的 GitHub Issue 链接,`window.open` 一键跳转
 - `HomePage.tsx` 页脚新增「报告 Bug」按钮(lucide `Bug` 图标)
