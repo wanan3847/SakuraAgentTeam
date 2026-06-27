@@ -13,6 +13,7 @@ import {
   TeamInfo, ChatMessage, AgentTraceData, GraphSnapshot, WhiteboardData, TeamMode,
   CollabArtifact, CollaborationState,
 } from '../lib/teamApi'
+import { saveHistory } from '../lib/historyApi'
 import {
   Award, BookOpen, Layers,
 } from 'lucide-react'
@@ -117,6 +118,16 @@ export default function WorkspacePage() {
     setInput('')
     setIsStreaming(true)
 
+    // 用 ref 跟踪本次对话的所有消息,供 finally 保存历史
+    const messagesRef: { current: ChatMessage[] } = { current: newMessages }
+    const updateMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      setMessages(prev => {
+        const next = updater(prev)
+        messagesRef.current = next
+        return next
+      })
+    }
+
     // 清空面板
     setGraphSnapshot(null)
     setTraces({})
@@ -142,7 +153,7 @@ export default function WorkspacePage() {
 
         if (evt.type === 'phase_start') {
           // 添加阶段标记消息
-          setMessages((prev) => [...prev, {
+          updateMessages((prev) =>[...prev, {
             id: `phase-${Date.now()}-${Math.random()}`,
             role: 'phase', name: '阶段', avatar: '',
             color: '#8C4A57', content: '', stage: JSON.stringify(evt.data),
@@ -230,7 +241,7 @@ export default function WorkspacePage() {
               return [...prev, artifact]
             })
             // 关键修复:把最终成果作为一条特殊消息加到对话区,用户能直接看到
-            setMessages((prev) => {
+            updateMessages((prev) =>{
               // 避免重复
               if (prev.find((m) => m.id === artifact.id)) return prev
               return [...prev, {
@@ -273,7 +284,7 @@ export default function WorkspacePage() {
           const from = evt.data.from
           const to = evt.data.to
           setHandoffChain((c) => [...c, `${from} → ${to}`])
-          setMessages((prev) => [...prev, {
+          updateMessages((prev) =>[...prev, {
             id: `handoff-${Date.now()}`, role: 'handoff', name: '转交',
             avatar: '', color: '#6B8E6B',
             content: `${from} 转交给 ${to}`, stage: evt.data.reason,
@@ -302,18 +313,18 @@ export default function WorkspacePage() {
             content: '', avatar: a.avatar, color: a.color,
             isStreaming: true, stage: a.stage,
           }
-          setMessages((prev) => [...prev, currentAgentMsg!])
+          updateMessages((prev) =>[...prev, currentAgentMsg!])
         } else if (evt.type === 'agent_chunk') {
           const chunk = evt.data.chunk || ''
           if (currentAgentMsg) {
             const agentId = currentAgentMsg.id
-            setMessages((prev) => prev.map((m) => m.id === agentId ? { ...m, content: m.content + chunk } : m))
+            updateMessages((prev) =>prev.map((m) => m.id === agentId ? { ...m, content: m.content + chunk } : m))
           }
         } else if (evt.type === 'agent_done') {
           const a = evt.data
           if (currentAgentMsg) {
             const agentId = currentAgentMsg.id
-            setMessages((prev) => prev.map((m) => m.id === agentId ? {
+            updateMessages((prev) =>prev.map((m) => m.id === agentId ? {
               ...m, content: a.content || m.content, isStreaming: false,
               stage: a.stage, final: a.final,
             } : m))
@@ -321,20 +332,41 @@ export default function WorkspacePage() {
           setThinkingAgent(null)
           currentAgentMsg = null
         } else if (evt.type === 'error') {
-          setMessages((prev) => [...prev, {
+          updateMessages((prev) =>[...prev, {
             id: `e-${Date.now()}`, role: 'error', name: '系统',
             content: evt.data.message || '出错了', avatar: '', color: '#B56B6B',
           }])
         }
       }
     } catch (e: any) {
-      setMessages((prev) => [...prev, {
+      updateMessages((prev) => [...prev, {
         id: `e-${Date.now()}`, role: 'error', name: '系统',
         content: `连接失败: ${e.message}`, avatar: '', color: '#B56B6B',
       }])
     } finally {
       setIsStreaming(false)
       setThinkingAgent(null)
+      // 保存对话历史到后端 — 修复"历史记录形同虚设"问题
+      const token = localStorage.getItem('token')
+      const teamId = activeTeam?.id || adhocTeam?.name || 'adhoc'
+      const teamName = activeTeam?.name || adhocTeam?.name || '临时团队'
+      const teamIcon = activeTeam?.icon || adhocTeam?.icon || '🌟'
+      if (token && messagesRef.current.length > 1) {
+        try {
+          await saveHistory(token, {
+            team_id: teamId,
+            team_name: teamName,
+            team_icon: teamIcon,
+            messages: messagesRef.current.map((m) => ({
+              role: m.role, name: m.name, content: m.content,
+              avatar: m.avatar, color: m.color, stage: m.stage, final: m.final,
+            })),
+            title: content.slice(0, 50),
+          })
+        } catch (e) {
+          console.warn('保存历史失败:', e)
+        }
+      }
     }
   }
 

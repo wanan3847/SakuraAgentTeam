@@ -11,7 +11,7 @@ const FEATURES = [
   { icon: Users, title: '群聊协作', desc: '多位专家在同一对话框讨论、互相追问、给出方案', color: '#C97B8A' },
   { icon: Workflow, title: '流水线接力', desc: '采集→撰写→校对→整合，四阶段顺序产出', color: '#8C4A57' },
   { icon: Bot, title: '管家调度', desc: '主管分析任务，召唤合适专家，整合成果', color: '#6B655C' },
-  { icon: Sparkles, title: '自由编组', desc: '从 60+ 位专家中挑选成员，组建你的专属团队', color: '#6B8E6B' },
+  { icon: Sparkles, title: '自由编组', desc: '从 100 位专家中挑选成员，组建你的专属团队', color: '#6B8E6B' },
 ]
 
 /* ============================================================
@@ -111,7 +111,15 @@ export default function HomePage() {
                   onClick={() => setMenuOpen((v) => !v)}
                   className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-bg-subtle transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-md" style={{ backgroundColor: user.avatar || '#C97B8A' }} />
+                  {user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http')) ? (
+                    <img src={user.avatar} alt={user.username} className="w-8 h-8 rounded-md object-cover" />
+                  ) : user.avatar && user.avatar.startsWith('#') ? (
+                    <div className="w-8 h-8 rounded-md" style={{ backgroundColor: user.avatar }} />
+                  ) : (
+                    <div className="w-8 h-8 rounded-md flex items-center justify-center text-lg bg-bg-subtle border border-border">
+                      {user.avatar || '🌸'}
+                    </div>
+                  )}
                   <span className="text-xs font-medium text-ink-soft max-w-[80px] truncate">{user.username}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-ink-faint transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -172,7 +180,7 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass mb-8 animate-fade-in">
             <span className="w-2 h-2 rounded-full bg-sage animate-pulse"></span>
-            <span className="text-xs text-ink-soft">60+ 位专家 · 7 种协作模式</span>
+            <span className="text-xs text-ink-soft">100 位专家 · 7 种协作模式</span>
           </div>
 
           <h1 className="font-display text-5xl md:text-7xl font-light leading-tight mb-6 animate-fade-up">
@@ -400,7 +408,7 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-block text-xs font-mono text-ink-faint mb-3 tracking-widest">/ 03 — LIBRARY</div>
           <h2 className="font-display text-3xl md:text-4xl font-light mb-3">
-            <span className="gradient-text">60+</span> 位专家智能体
+            <span className="gradient-text">100</span> 位专家智能体
           </h2>
           <p className="text-ink-soft mb-10">覆盖全流程，按需召唤</p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -431,7 +439,7 @@ export default function HomePage() {
               <h2 className="font-display text-3xl md:text-4xl font-light text-ink mb-4">
                 说出你的第一个需求
               </h2>
-              <p className="text-ink-soft text-sm mb-8">60+ 位专家 · 7 种协作模式 · 即刻开始</p>
+              <p className="text-ink-soft text-sm mb-8">100 位专家 · 7 种协作模式 · 即刻开始</p>
               <Link to="/workspace" className="btn-gradient px-8 py-3 rounded-md font-medium inline-flex items-center gap-2">
                 开始协作 <ArrowRight className="w-4 h-4" />
               </Link>

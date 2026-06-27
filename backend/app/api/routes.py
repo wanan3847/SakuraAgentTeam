@@ -478,8 +478,18 @@ async def rollback_project(project_id: str, request: Request):
 
 @router.get("/agents")
 def list_agents():
-    """List all available agent roles."""
-    return {"success": True, "roles": list_available_roles()}
+    """List all available agent roles.
+
+    注意: 这是旧的 7-role legacy 端点,仅供向后兼容。
+    新的 100 位专家库请用 GET /api/v1/experts。
+    """
+    # 返回完整 100 位专家,与 /experts 一致,避免用户误以为只有 7 个
+    try:
+        from app.orchestration.agent_team import list_agents as _list_experts
+        items = _list_experts()
+        return {"success": True, "roles": list_available_roles(), "agents": items, "total": len(items)}
+    except Exception:
+        return {"success": True, "roles": list_available_roles()}
 
 
 @router.get("/projects")

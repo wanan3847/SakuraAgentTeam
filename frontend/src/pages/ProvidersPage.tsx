@@ -942,6 +942,14 @@ function ConfigCard({
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState({
+    display_name: config.display_name,
+    base_url: config.base_url,
+    api_key: '',
+    model: config.model,
+  })
 
   const handleTest = async () => {
     setTesting(true)
@@ -996,6 +1004,41 @@ function ConfigCard({
     }
   }
 
+  const handleSaveEdit = async () => {
+    setSaving(true)
+    try {
+      const payload: any = {
+        display_name: editForm.display_name,
+        base_url: editForm.base_url,
+        model: editForm.model,
+      }
+      // 只有填了 api_key 才更新(空值不传,保留原 key)
+      if (editForm.api_key.trim()) {
+        payload.api_key = editForm.api_key.trim()
+      }
+      const res = await updateConfig(token, config.id, payload)
+      if (res.success) {
+        setEditing(false)
+        setEditForm((f) => ({ ...f, api_key: '' }))
+        onChanged()
+      } else {
+        setTestResult({ ok: false, msg: res.error || '保存失败' })
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditing(false)
+    setEditForm({
+      display_name: config.display_name,
+      base_url: config.base_url,
+      api_key: '',
+      model: config.model,
+    })
+  }
+
   return (
     <div
       className={`rounded-xl border border-border bg-surface p-4 transition-all ${
@@ -1040,6 +1083,82 @@ function ConfigCard({
         </div>
       </div>
 
+      {/* 编辑表单 */}
+      {editing && (
+        <div className="mt-3 pt-3 border-t border-border space-y-2">
+          <div>
+            <label className="text-[10px] text-ink-faint font-mono">显示名</label>
+            <input
+              type="text"
+              value={editForm.display_name}
+              onChange={(e) => setEditForm((f) => ({ ...f, display_name: e.target.value }))}
+              className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg border border-border bg-bg-subtle text-sm outline-none focus:border-ink"
+              autoComplete="off"
+              data-form-type="other"
+              data-lpignore="true"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-faint font-mono">Base URL</label>
+            <input
+              type="text"
+              value={editForm.base_url}
+              onChange={(e) => setEditForm((f) => ({ ...f, base_url: e.target.value }))}
+              className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg border border-border bg-bg-subtle text-sm font-mono outline-none focus:border-ink"
+              autoComplete="off"
+              data-form-type="other"
+              data-lpignore="true"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-faint font-mono">API Key（留空保留原 Key）</label>
+            <input
+              type="password"
+              value={editForm.api_key}
+              onChange={(e) => setEditForm((f) => ({ ...f, api_key: e.target.value }))}
+              placeholder="输入新 Key 覆盖,留空则不变"
+              className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg border border-border bg-bg-subtle text-sm font-mono outline-none focus:border-ink"
+              autoComplete="new-password"
+              data-form-type="other"
+              data-lpignore="true"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-faint font-mono">模型</label>
+            <input
+              type="text"
+              value={editForm.model}
+              onChange={(e) => setEditForm((f) => ({ ...f, model: e.target.value }))}
+              list={`models-${config.id}`}
+              className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg border border-border bg-bg-subtle text-sm font-mono outline-none focus:border-ink"
+              autoComplete="off"
+              data-form-type="other"
+              data-lpignore="true"
+            />
+            <datalist id={`models-${config.id}`}>
+              {(config.models || []).map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSaveEdit}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-lg bg-ink text-surface text-xs hover:bg-ink/90 disabled:opacity-50"
+            >
+              {saving ? '保存中…' : '保存'}
+            </button>
+            <button
+              onClick={handleCancelEdit}
+              className="px-3 py-1.5 rounded-lg border border-border text-xs text-ink-soft hover:bg-bg-subtle"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 操作按钮 */}
       <div className="flex gap-2 mt-3 pt-3 border-t border-border">
         <button
@@ -1055,6 +1174,12 @@ function ConfigCard({
           className="px-3 py-1.5 rounded-lg border border-border text-xs text-ink-soft hover:bg-bg-subtle disabled:opacity-50"
         >
           刷新模型
+        </button>
+        <button
+          onClick={() => { setEditing(!editing); if (editing) handleCancelEdit() }}
+          className="px-3 py-1.5 rounded-lg border border-border text-xs text-ink-soft hover:bg-bg-subtle"
+        >
+          {editing ? '收起' : '编辑'}
         </button>
         {!config.is_default && (
           <button

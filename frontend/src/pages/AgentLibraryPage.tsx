@@ -124,7 +124,7 @@ export default function AgentLibraryPage() {
               spellCheck={false}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索 60+ 位专家..."
+              placeholder="搜索 100 位专家..."
               className="w-full glass rounded-md pl-11 pr-4 py-3 text-sm border border-border focus:border-ink-muted outline-none"
             />
           </div>
