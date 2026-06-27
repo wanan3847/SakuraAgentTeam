@@ -233,7 +233,7 @@ const DOWNLOAD_SECTIONS: DownloadMethod[] = [
     blocks: [
       { name: '方案 A — 推荐:用 PowerShell 一键脚本跑 Web 版(0 依赖打包)', cmd: 'irm https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.ps1 | iex' },
       { name: '方案 B — 在 Windows 上自建 .exe 桌面端', cmd: 'cd SakuraAgentTeam\\desktop\nnpm install\nnpm run build:win' },
-      { name: '方案 C — 用 GitHub Actions 跨平台 CI 自动构建', cmd: 'gh workflow run desktop-build.yml --ref main' },
+      { name: '方案 C — 用 GitHub Actions 跨平台 CI 自动构建(需先装 gh CLI: https://cli.github.com)', cmd: 'gh workflow run desktop-build.yml --ref main\n# 没装 gh 也可以直接去 GitHub 网页端手动触发 Actions' },
       { name: '   ↑ 产物会在 https://github.com/wanan3847/SakuraAgentTeam/actions 下的 Artifacts 里', cmd: 'open https://github.com/wanan3847/SakuraAgentTeam/actions' },
       { name: 'WSL2 方案(纯 Linux 子系统)', cmd: 'wsl --install\nwsl -- curl -fsSL https://raw.githubusercontent.com/wanan3847/SakuraAgentTeam/main/scripts/install.sh | bash' },
     ],

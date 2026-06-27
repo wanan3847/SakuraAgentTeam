@@ -9,6 +9,7 @@
     "build": "node build.js",
     "build:mac": "node build.js --mac",
     "build:win": "node build.js --win",
+    "build:linux": "node build.js --linux",
     "build:all": "node build.js --all"
   },
   "dependencies": {},
@@ -60,6 +61,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.png",
+      "category": "Development"
     },
     "dmg": {
       "title": "樱花小队 SakuraAgentTeam ${version}",
