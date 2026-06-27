@@ -257,6 +257,44 @@ def collaboration_get_final(session_id: str):
 
 
 # ============================================================
+# 协作历史(新)— 查看用户的所有协作会话
+# ============================================================
+
+@router.get("/collaboration/history/list")
+def collaboration_history_list(user: User = Depends(get_current_user), limit: int = 50):
+    """列出当前用户的所有协作会话。"""
+    from app.collaboration.store import list_user_sessions
+    sessions = list_user_sessions(user.id, limit=limit)
+    return {"success": True, "sessions": sessions, "total": len(sessions)}
+
+
+@router.get("/collaboration/history/{session_id}")
+def collaboration_history_detail(session_id: str, user: User = Depends(get_current_user)):
+    """获取某个协作会话的完整详情(从数据库)。"""
+    from app.collaboration.store import get_session_with_details
+    detail = get_session_with_details(session_id)
+    if not detail:
+        return {"success": False, "error": "session not found"}
+    # 权限检查:只能看自己的
+    if detail.get("user_id") != user.id:
+        return {"success": False, "error": "permission denied"}
+    return {"success": True, "session": detail}
+
+
+@router.delete("/collaboration/history/{session_id}")
+def collaboration_history_delete(session_id: str, user: User = Depends(get_current_user)):
+    """删除某个协作会话。"""
+    from app.collaboration.store import delete_session, get_session_with_details
+    detail = get_session_with_details(session_id)
+    if not detail:
+        return {"success": False, "error": "session not found"}
+    if detail.get("user_id") != user.id:
+        return {"success": False, "error": "permission denied"}
+    ok = delete_session(session_id)
+    return {"success": ok}
+
+
+# ============================================================
 # Export
 # ============================================================
 
@@ -382,8 +420,100 @@ async def _stream_chat(team: Crew, request: Request, user: User):
                 f"event: llm_info\n"
                 f"data: {json.dumps(llm_info, ensure_ascii=False)}\n\n"
             )
+
+            # ===== 阶段 2+3:所有模式统一产出 artifact + final_deliverable =====
+            from app.orchestration.collaboration_state import (
+                Artifact as CollabArtifact,
+                create_session as create_collab,
+                new_artifact_id,
+            )
+            from app.orchestration.finalizer import synthesize_final_artifact
+            from app.orchestration.agent_team import build_llm_for_user
+
+            collab_state = create_collab(
+                user_request=message,
+                mode=team.mode,
+                team_id=team.id,
+                team_name=team.name,
+            )
+            agent_outputs: list[dict] = []  # 收集 agent_done 的内容
+
             async for evt in engine.run(team, message, history, process=actual_process):
                 yield f"event: {evt.type}\ndata: {json.dumps(evt.data, ensure_ascii=False)}\n\n"
+
+                # 拦截 agent_done,收集内容存为 artifact
+                if evt.type == "agent_done":
+                    d = evt.data
+                    agent_id = ""
+                    # 从 team.agents 反查 agent_id
+                    for a in team.agents:
+                        if a.name == d.get("name"):
+                            agent_id = a.id
+                            break
+                    artifact = CollabArtifact(
+                        id=new_artifact_id(),
+                        task_id=f"agent-{len(agent_outputs) + 1}",
+                        agent_id=agent_id,
+                        agent_name=d.get("name", ""),
+                        type="text",
+                        title=d.get("stage", d.get("name", "发言")),
+                        content=d.get("content", ""),
+                        summary=(d.get("content", "") or "")[:200],
+                    )
+                    collab_state.add_artifact(artifact)
+                    agent_outputs.append({
+                        "agent_name": d.get("name", ""),
+                        "content": d.get("content", ""),
+                        "artifact_id": artifact.id,
+                    })
+                    # 广播 artifact_created
+                    yield f"event: artifact_created\ndata: {json.dumps({'artifact': artifact.to_dict(), 'is_final': False}, ensure_ascii=False)}\n\n"
+
+            # 所有 agent 完成后,调 finalizer 生成最终交付
+            if agent_outputs:
+                try:
+                    user_llm = build_llm_for_user(user.id)
+                    final_art = await synthesize_final_artifact(collab_state, user_llm)
+                    # 广播最终 artifact
+                    yield f"event: artifact_created\ndata: {json.dumps({'artifact': final_art.to_dict(), 'is_final': True}, ensure_ascii=False)}\n\n"
+                    yield f"event: final_deliverable\ndata: {json.dumps({'artifact': final_art.to_dict(), 'session_id': collab_state.session_id}, ensure_ascii=False)}\n\n"
+
+                    # 持久化(阶段 4)
+                    try:
+                        from app.collaboration.store import (
+                            save_artifact as _save_art,
+                            save_session as _save_sess,
+                        )
+                        _save_sess(
+                            session_id=collab_state.session_id,
+                            user_id=user.id,
+                            user_request=message,
+                            mode=team.mode,
+                            team_id=team.id,
+                            team_name=team.name,
+                            task_count=len(agent_outputs),
+                            artifact_count=len(collab_state.artifacts),
+                            final_artifact_id=collab_state.final_artifact_id,
+                        )
+                        for a in collab_state.artifacts:
+                            _save_art(
+                                artifact_id=a.id,
+                                session_id=collab_state.session_id,
+                                task_id=a.task_id,
+                                agent_id=a.agent_id,
+                                agent_name=a.agent_name,
+                                type=a.type,
+                                title=a.title,
+                                content=a.content,
+                                summary=a.summary or "",
+                                is_final=(a.id == collab_state.final_artifact_id),
+                            )
+                    except Exception as persist_err:
+                        logger.warning(f"chat 模式持久化失败: {persist_err}")
+
+                except Exception as fin_err:
+                    logger.warning(f"finalizer 失败(非致命): {fin_err}")
+
         except Exception as exc:
             logger.exception("chat_stream_error", error=str(exc), user_id=user.id)
             yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
@@ -426,6 +556,7 @@ async def _stream_graph(team: Crew, request: Request, user: User):
                 user_request=message,
                 tasks=tasks if tasks else None,
                 manager_id=manager_id,
+                user_id=user.id,
             ):
                 yield f"event: {evt.type}\ndata: {json.dumps(evt.data, ensure_ascii=False)}\n\n"
         except Exception as exc:

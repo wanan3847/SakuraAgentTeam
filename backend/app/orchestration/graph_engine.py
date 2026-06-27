@@ -52,6 +52,28 @@ from .planner import plan_tasks, plan_tasks_async, tasks_to_nodes
 logger = logging.getLogger(__name__)
 
 
+# ===== 质量控制(阶段 5) =====
+
+MIN_OUTPUT_LENGTH = 200  # 最短有效输出字符数
+
+
+def _is_output_too_short(content: str) -> bool:
+    """检查输出是否太短(少于 200 字符视为无效)。"""
+    return len(content.strip()) < MIN_OUTPUT_LENGTH
+
+
+def _build_supplement_prompt(agent: AgentDef, task: CollabTaskNode, original: str) -> str:
+    """输出太短时,生成补充 prompt。"""
+    return f"""你之前的输出太短了,缺乏实质内容。
+
+原输出:
+{original[:500]}
+
+请作为【{agent.name}】({agent.role}),针对任务「{task.name}」重新输出更详细、更具体的内容。
+至少 300 字,必须包含可执行的细节。
+"""
+
+
 @dataclass
 class GraphEvent:
     """SSE 事件载体 — 与 agent_team.py 的 ChatEvent 兼容。"""
@@ -76,6 +98,7 @@ class GraphCollaborationEngine:
         tasks: list[dict[str, Any]] | None = None,
         manager_id: str | None = None,
         session_id: str | None = None,
+        user_id: int | None = None,
     ) -> AsyncIterator[GraphEvent]:
         """执行 DAG 协作。
 
@@ -85,6 +108,7 @@ class GraphCollaborationEngine:
             tasks: 前端传入的任务定义(可选,不传则 LLM 自动拆)
             manager_id: 主管 agent id(可选)
             session_id: 会话 id(可选)
+            user_id: 用户 id(可选,用于持久化)
 
         Yields:
             GraphEvent 流
@@ -194,6 +218,57 @@ class GraphCollaborationEngine:
                 type="error",
                 data={"message": f"最终交付生成失败: {e}"},
             )
+
+        # ===== 5.5 持久化到数据库(阶段 4) =====
+        if user_id is not None:
+            try:
+                from app.collaboration.store import (
+                    save_artifact as _save_art,
+                    save_session as _save_sess,
+                    save_task as _save_task,
+                )
+                _save_sess(
+                    session_id=state.session_id,
+                    user_id=user_id,
+                    user_request=state.user_request,
+                    mode=state.mode,
+                    team_id=state.team_id,
+                    team_name=state.team_name,
+                    task_count=len(state.tasks),
+                    artifact_count=len(state.artifacts),
+                    final_artifact_id=state.final_artifact_id,
+                )
+                for t in state.tasks:
+                    _save_task(
+                        session_id=state.session_id,
+                        task_id=t.id,
+                        name=t.name,
+                        description=t.description,
+                        expected_output=t.expected_output,
+                        agent_id=t.agent_id,
+                        agent_name=t.agent_name,
+                        dependencies=t.dependencies,
+                        state=t.state,
+                        error=t.error,
+                        started_at=t.started_at,
+                        finished_at=t.finished_at,
+                    )
+                for a in state.artifacts:
+                    _save_art(
+                        artifact_id=a.id,
+                        session_id=state.session_id,
+                        task_id=a.task_id,
+                        agent_id=a.agent_id,
+                        agent_name=a.agent_name,
+                        type=a.type,
+                        title=a.title,
+                        content=a.content,
+                        summary=a.summary or "",
+                        is_final=(a.id == state.final_artifact_id),
+                    )
+                logger.info(f"协作数据已持久化: session={state.session_id}")
+            except Exception as e:
+                logger.warning(f"协作数据持久化失败(不影响结果): {e}")
 
         # ===== 6. 结束 =====
         yield GraphEvent(
@@ -305,6 +380,17 @@ class GraphCollaborationEngine:
                     content = fixed_content
             except Exception as e:
                 logger.warning(f"任务 {task.id} 输出修正失败: {e}")
+
+        # 质量控制:输出太短则自动补充(阶段 5)
+        if _is_output_too_short(content) and self.llm:
+            try:
+                supplement_prompt = _build_supplement_prompt(agent, task, content)
+                supplemented = await self._call_agent_llm(agent, supplement_prompt, f"{task.name}-补充")
+                if supplemented and len(supplemented) > MIN_OUTPUT_LENGTH:
+                    content = supplemented
+                    logger.info(f"任务 {task.id} 输出太短,已自动补充至 {len(content)} 字符")
+            except Exception as e:
+                logger.warning(f"任务 {task.id} 输出补充失败: {e}")
 
         # 创建 artifact
         contract = get_contract(agent)
