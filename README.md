@@ -1,6 +1,6 @@
 # 樱花小队 SakuraAgentTeam
 
-> 一个可视化 AI 多智能体协作平台，支持 100+ 位虚拟专家、7 种协作模式、**每位用户用自己的 LLM Key**。
+> 一个可视化 AI 多智能体协作平台，支持 100+ 位虚拟专家、7 种协作模式、Artifact 产物链、**每位用户用自己的 LLM Key**。
 > 借鉴 CrewAI / AG2 / Anthropic / MetaGPT / OpenAI Swarm / LangGraph 等成熟框架的能力。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
@@ -10,6 +10,7 @@
 [![VS Code](https://img.shields.io/badge/VS%20Code-插件-007ACC)](./vscode-extension)
 
 - **GitHub**：<https://github.com/wanan3847/SakuraAgentTeam>
+- **在线体验**：<https://team.041126.xyz>
 - **免费获取 Token 教程**：[http://localhost:5173/tutorial](http://localhost:5173/tutorial)（启动后访问）
 - **友情链接**(放最下面,免得抢正文章节的位置):
   - <https://041126.xyz/>
@@ -20,12 +21,13 @@
 
 ## 一句话介绍
 
-> **100 个专家 + 254 个 LLM 供应商 + 7 种协作模式 = 你的私人 AI 团队,每个人的 key 自己做主。**
+> **100 个专家 + 254 个 LLM 供应商 + 7 种协作模式 + Artifact 产物链 = 你的私人 AI 团队,每个人的 key 自己做主。**
 
 - **100+ 预设专家**:覆盖 30 个分类(创意/设计/技术/研究/策略/审核/行业/教育/金融/法律/健康/媒体/音乐/写作/数据/DevOps/商业/学术/翻译/电商/游戏/旅游/美食/体育/农业/能源/航空/环保/社交/心理)
-- **254+ LLM 供应商**:OpenAI / Anthropic / DeepSeek / Qwen / 智谱 / Kimi / Ollama / 自定义 OpenAI 兼容端点,**每个用户自带 Key**
+- **254 个 LLM 供应商**:OpenAI / Anthropic / DeepSeek / Qwen / 智谱 / Kimi / Ollama / 自定义 OpenAI 兼容端点,**每个用户自带 Key**
 - **7 种协作模式**:群聊 / 流水线 / 管家 / 共识 / 并行 / 转交 / 状态图
 - **9 支预设团队**:开箱即用,涵盖营销 / 内容 / 研发 / 研究 / 创业 / 品牌 / 产品 / 并行工程 / 论文写作
+- **强制最终成果**:每次协作都会生成 `final_deliverable`,LLM 失败也有 fallback 汇总,不只停留在聊天记录
 - **多端接入**:Web / VS Code 插件 / CLI / 桌面应用
 - **每用户独立 LLM**:你的 key 你的对话,token 走你自己的账户
 
@@ -75,14 +77,14 @@ sakura task "帮我写一份 LLM provider 调研"
 ### 核心:用户自带 LLM Key(★)
 
 - **真用你的 key**:每次对话都用你自己保存的 `api_key`,SSE 第一个事件会显示用的是哪家的 key。
-- **254+ 供应商**:从 OpenAI 到 Ollama,从 DeepSeek 到自建中转,全部 OpenAI 兼容,一行配置。
+- **254 个供应商**:从 OpenAI 到 Ollama,从 DeepSeek 到自建中转,全部 OpenAI 兼容,一行配置。
 - **per-user engine**:每个用户独立一个 `CollaborationEngine`,互不干扰,token 走你自己的账户。
 - **多配置切换**:可以配多个 LLM,日常用便宜的,关键时刻切到 Claude。
 - **CLI `sakura me-llm`**:随时查看"我的对话正在用谁的 key"。
 
 详见 [docs/USER_LLM.md](./docs/USER_LLM.md)。
 
-### 100+ 专家 / 7 种协作模式
+### 100+ 专家 / 7 种协作模式 / Artifact 产物链
 
 - **100+ 位预设专家智能体**:覆盖 30 个分类,详细列表见 [docs/AGENT_GUIDE.md](./docs/AGENT_GUIDE.md)。
 - **7 种协作模式**(借鉴业界成熟框架):
@@ -95,11 +97,16 @@ sakura task "帮我写一份 LLM provider 调研"
   - 状态图 (graph) — DAG 任务图(借鉴 LangGraph)
 - **9 支预设团队**:开箱即用,营销 / 内容 / 研发 / 研究 / 创业 / 品牌 / 产品 / 并行工程 / 论文写作。
 - **可视化团队组建**:界面上挑专家、配协作模式、即时预览拓扑。
+- **统一协作状态**:任务图、任务状态、Agent 产物、最终交付物都落在 `CollaborationState`。
+- **结构化产物**:每个任务节点至少生成一个 Artifact,下游 Agent 直接读取上游 Artifact,不是只看聊天历史。
+- **最终整合器**:Finalizer 消费全部 Artifact,生成可直接导出/复用的最终报告。
+- **质量控制**:输出太短会自动补充,缺少必要章节会触发一次修正。
 
 ### 实时 & 工具
 
 - **实时 SSE 流式输出**:每个 Agent 的发言、思考、产物都通过 Server-Sent Events 实时推送。
 - **共享白板**:借鉴 MetaGPT 产物链,团队成员共享一块白板,沉淀中间产物与最终交付物。
+- **任务图执行**:借鉴 LangGraph,DAG 节点按依赖推进,状态包括 `pending / ready / running / done / failed / skipped`。
 - **执行追踪**:借鉴 Smolagents Trace,完整记录每一步 Agent 调用、工具使用、上下文流转。
 - **10 个内置工具**:file_edit / shell / grep / glob / web_search / web_scraper / mcp 等。
 - **11 个内置 Skill**:generate_fullstack / diagnose / tdd / prototype / pdf / to_prd / caveman / 等。
@@ -288,9 +295,9 @@ npm run build   # 打包
 
 ---
 
-## 100+ LLM 供应商
+## 254 个 LLM 供应商
 
-通过 LiteLLM 一行接入 254+ LLM 供应商,详细配置见 [docs/USER_LLM.md](./docs/USER_LLM.md)。
+通过 LiteLLM 一行接入 254 个 LLM 供应商,详细配置见 [docs/USER_LLM.md](./docs/USER_LLM.md)。
 
 | 类型 | 代表供应商 |
 |------|-----------|
@@ -304,13 +311,36 @@ npm run build   # 打包
 
 ---
 
+## 在线版本与真实数据
+
+线上体验地址：<https://team.041126.xyz>
+
+首页指标不使用写死的营销数字,而是从 `GET /api/v1/public/stats` 读取真实数据:
+
+| 指标 | 数据来源 |
+|------|----------|
+| 累计完成任务 | 历史会话表 `conversations` |
+| 在线智能体 | 后端实际注册的核心 Agent |
+| 累计节省工时 | 根据真实消息量估算 |
+| 社区贡献者 | 活跃用户数 + 已通过 Agent 投稿数 |
+| LLM 供应商 | 后端 provider registry 实际长度 |
+
+生产部署采用 PM2 + Nginx + Cloudflare Tunnel:
+
+- 后端：`uvicorn app.api.main:app --host 127.0.0.1 --port 8000`
+- 前端：`frontend/dist` 由 Nginx 静态托管
+- Tunnel：`team.041126.xyz -> http://localhost:5173`
+- 部署脚本：[scripts/deploy-to-team.sh](./scripts/deploy-to-team.sh)
+
+---
+
 ## 技术栈
 
 | 层 | 技术 |
 |----|------|
 | 后端 | Python 3.11+ / FastAPI / SQLAlchemy / SQLite / SSE |
 | 前端 | React 18 / TypeScript / Tailwind CSS / Vite / 🌸 暖纸感视觉风格 |
-| LLM | OpenAI 兼容 API + LiteLLM(254+ 供应商) |
+| LLM | OpenAI 兼容 API + LiteLLM(254 个供应商) |
 | CLI | Typer / Rich |
 | VS Code 插件 | Node.js / VS Code Extension API |
 | 桌面 | Electron |
@@ -329,8 +359,9 @@ SakuraAgentTeam/
 │   │   ├── core/             # 配置 / 日志 / 沙箱
 │   │   ├── foundation/       # LLM / 工具 / 技能 / MCP
 │   │   ├── history/          # 历史记录
-│   │   ├── llm_providers/    # 254+ LLM 供应商 + per-user 配置
-│   │   ├── orchestration/    # 7 种协作引擎
+│   │   ├── llm_providers/    # 254 个 LLM 供应商 + per-user 配置
+│   │   ├── orchestration/    # 7 种协作引擎 + Artifact / DAG / Finalizer
+│   │   ├── collaboration/    # 协作 session / task / artifact 持久化
 │   │   └── submissions/      # Agent 社区提交
 │   ├── cli/                  # 命令行客户端(25+ 命令)
 │   └── tests/                # pytest 测试
@@ -372,7 +403,11 @@ SakuraAgentTeam/
 | POST | `/api/v1/teams/{id}/chat` | 团队协作(SSE 流式,per-user LLM) |
 | POST | `/api/v1/teams/{id}/graph` | 状态图模式(LangGraph 风格) |
 | POST | `/api/v1/teams/{id}/handoff` | Handoff 模式(Swarm 风格) |
-| GET | `/api/v1/llm/providers` | 254+ 供应商列表 |
+| GET | `/api/v1/collaboration/{session_id}/state` | 协作状态(任务图 + 产物) |
+| GET | `/api/v1/collaboration/{session_id}/artifacts` | 协作产物列表 |
+| GET | `/api/v1/collaboration/{session_id}/final` | 最终交付物 |
+| GET | `/api/v1/public/stats` | 首页真实统计 |
+| GET | `/api/v1/llm/providers` | 254 个供应商列表 |
 | GET | `/api/v1/llm/configs` | 我的 LLM 配置 |
 | POST | `/api/v1/llm/configs` | 保存 LLM 配置 |
 | POST | `/api/v1/llm/test-connection` | 测试连接 |
@@ -395,7 +430,7 @@ SakuraAgentTeam/
 | OpenAI Swarm | Handoff 转交模式 |
 | LangGraph | 任务状态机 (DAG + Checkpoint) |
 | Smolagents | Agent Trace 执行追踪 |
-| LiteLLM | 254+ LLM 供应商一行接入 |
+| LiteLLM | 254 个 LLM 供应商一行接入 |
 
 ---
 
@@ -409,9 +444,11 @@ SakuraAgentTeam/
 | [docs/VSCODE_EXTENSION.md](./docs/VSCODE_EXTENSION.md) | VS Code 插件指南 |
 | [docs/AGENT_GUIDE.md](./docs/AGENT_GUIDE.md) | Agent 创建指南 + 100+ 专家完整列表 |
 | [docs/COLLABORATION_MODES.md](./docs/COLLABORATION_MODES.md) | 7 种协作模式详解 |
+| [docs/AGENT_COLLABORATION_REWORK_PLAN.md](./docs/AGENT_COLLABORATION_REWORK_PLAN.md) | 子 Agent 协作改造方案(任务图 / Artifact / Finalizer) |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 后端架构(per-user engine / SSE / framework 借鉴) |
 | [docs/USER_LLM.md](./docs/USER_LLM.md) | 用户 LLM Key 流程(配 Key → 验证 → 排错) |
 | [docs/OPENDESIGN_REFERENCE.md](./docs/OPENDESIGN_REFERENCE.md) | opendesign 风格前端参考手册(待重设计用) |
+| [docs/CONTEST_POST.md](./docs/CONTEST_POST.md) | TRAE AI 创造力大赛参赛帖草稿 |
 | [CHANGELOG.md](./CHANGELOG.md) | 变更日志 |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献指南 |
 | [LICENSE](./LICENSE) | MIT 协议 |
