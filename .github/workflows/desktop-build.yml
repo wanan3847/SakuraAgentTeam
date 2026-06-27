@@ -32,15 +32,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Build frontend
         working-directory: frontend
         run: |
           npm ci
-          npm run build
+          npx vite build
           mkdir -p ../desktop/frontend-dist
           cp -R dist/* ../desktop/frontend-dist/
 
@@ -77,15 +77,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Build frontend
         working-directory: frontend
         run: |
           npm ci
-          npm run build
+          npx vite build
           mkdir ..\desktop\frontend-dist
           xcopy /E /I /Y dist\* ..\desktop\frontend-dist\
 
@@ -121,15 +121,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Build frontend
         working-directory: frontend
         run: |
           npm ci
-          npm run build
+          npx vite build
           mkdir -p ../desktop/frontend-dist
           cp -R dist/* ../desktop/frontend-dist/
 
@@ -186,7 +186,7 @@ jobs:
       - name: Set up Node for VS Code vsix
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Build VS Code vsix
         working-directory: vscode-extension
