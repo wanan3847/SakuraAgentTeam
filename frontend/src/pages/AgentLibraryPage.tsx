@@ -27,8 +27,8 @@ export default function AgentLibraryPage() {
   const [communityError, setCommunityError] = useState('')
 
   useEffect(() => {
-    fetchAgents().then((d) => setAgents(d.agents)).catch(() => {})
-    fetchCategories().then(setCategories).catch(() => {})
+    fetchAgents().then((d) => setAgents(d?.agents || [])).catch(() => {})
+    fetchCategories().then((d) => setCategories(d || [])).catch(() => {})
   }, [])
 
   const loadCommunity = async () => {
@@ -36,7 +36,7 @@ export default function AgentLibraryPage() {
     setCommunityError('')
     try {
       const data = await fetchPublicSubmissions()
-      setCommunityAgents(data)
+      setCommunityAgents(data || [])
     } catch (e: any) {
       setCommunityError(e.message || '加载失败')
     } finally {
@@ -138,7 +138,7 @@ export default function AgentLibraryPage() {
           >
             全部 ({agents.length})
           </button>
-          {categories.map((c) => {
+          {(categories || []).map((c) => {
             const count = agents.filter((a) => a.category === c.id).length
             const isActive = activeCat === c.id
             const color = CATEGORY_COLORS[c.id] || '#A8A299'
@@ -188,7 +188,7 @@ export default function AgentLibraryPage() {
 
         {/* Agent 网格 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map((a, i) => {
+          {(filtered || []).map((a, i) => {
             const isSelected = selected.has(a.id)
             const color = CATEGORY_COLORS[a.category] || '#A8A299'
             return (
@@ -276,7 +276,7 @@ export default function AgentLibraryPage() {
 
                 {/* 社区 Agent 网格 */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {communityAgents.map((item, i) => {
+                  {(communityAgents || []).map((item, i) => {
                     const color = item.agent_color || CATEGORY_COLORS[item.agent_category] || '#8C4A57'
                     return (
                       <div
@@ -372,7 +372,7 @@ export default function AgentLibraryPage() {
             <div className="mb-5">
               <h3 className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2 flex items-center gap-1"><Zap className="w-3 h-3" /> 技能</h3>
               <div className="flex flex-wrap gap-1.5">
-                {detailAgent.skills.map((s, j) => (
+                {(detailAgent.skills || []).map((s, j) => (
                   <span
                     key={j}
                     className="text-xs px-2.5 py-1 rounded-full"

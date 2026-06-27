@@ -62,7 +62,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchTeams().then(setTeams).catch(() => {})
-    fetchPublicStats().then(setMetrics).catch(() => setMetrics([]))
+    fetchPublicStats().then((d) => setMetrics(d || [])).catch(() => setMetrics([]))
     const onScroll = () => setScrolled(window.scrollY > 30)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
@@ -205,7 +205,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {metrics.map((m, i) => {
+            {(metrics || []).map((m, i) => {
               const meta = METRIC_META.find((item) => item.label === m.label) || METRIC_META[0]
               const isPositive = m.delta > 0
               return (
@@ -283,7 +283,7 @@ export default function HomePage() {
       </section>
 
       {/* Preset Teams */}
-      {teams.length > 0 && (
+      {(teams || []).length > 0 && (
         <section className="px-6 py-20 relative z-10">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
@@ -293,7 +293,7 @@ export default function HomePage() {
               <p className="text-ink-soft">开箱即用，或在此基础上自定义</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {teams.map((t, i) => (
+              {(teams || []).map((t, i) => (
                 <Link
                   key={t.id}
                   to="/workspace"
@@ -307,7 +307,7 @@ export default function HomePage() {
                   <h3 className="font-semibold mb-1 group-hover:text-sakura-700 transition-colors">{t.name}</h3>
                   <p className="text-xs text-ink-soft mb-3 line-clamp-2">{t.description}</p>
                   <div className="flex items-center gap-1 mb-3">
-                    {t.members.slice(0, 4).map((m, j) => (
+                    {(t.members || []).slice(0, 4).map((m, j) => (
                       <div
                         key={j}
                         className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-mono font-medium"
@@ -321,7 +321,7 @@ export default function HomePage() {
                     <span className="px-2 py-0.5 rounded" style={{ backgroundColor: t.color + '15', color: t.color }}>
                       {modeLabel(t.mode)}
                     </span>
-                    <span className="text-ink-faint">{t.members.length} 人</span>
+                    <span className="text-ink-faint">{(t.members || []).length} 人</span>
                   </div>
                 </Link>
               ))}

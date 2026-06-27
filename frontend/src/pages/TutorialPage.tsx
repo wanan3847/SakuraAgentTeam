@@ -813,7 +813,7 @@ function FreeTokenTab() {
       setLoading(true)
       try {
         const data = await fetchFreeProviders()
-        if (!cancelled) setProviders(data)
+        if (!cancelled) setProviders(data || [])
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -830,7 +830,7 @@ function FreeTokenTab() {
     )
   }
 
-  if (providers.length === 0) {
+  if ((providers || []).length === 0) {
     return (
       <div className="text-center py-20 text-ink-faint text-sm">
         暂无免费供应商数据，请稍后再试。
@@ -849,7 +849,7 @@ function FreeTokenTab() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {providers.map((p, i) => {
+        {(providers || []).map((p, i) => {
           const expanded = expandedId === p.id
           return (
             <div
@@ -893,11 +893,11 @@ function FreeTokenTab() {
                   </div>
 
                   {/* 推荐模型 */}
-                  {p.models.length > 0 && (
+                  {(p.models || []).length > 0 && (
                     <div>
                       <div className="text-[10px] text-ink-faint mb-1.5 font-mono">推荐模型</div>
                       <div className="flex flex-wrap gap-1">
-                        {p.models.slice(0, 6).map((m, j) => (
+                        {(p.models || []).slice(0, 6).map((m, j) => (
                           <span
                             key={j}
                             className="text-[10px] px-2 py-0.5 rounded bg-bg-subtle text-ink-muted border border-border font-mono"

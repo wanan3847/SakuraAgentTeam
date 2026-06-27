@@ -32,7 +32,7 @@ export default function HistoryPage() {
     setError('')
     try {
       const { items, total } = await fetchHistory(token, p, PAGE_SIZE)
-      setItems(items)
+      setItems(items || [])
       setTotal(total)
     } catch (e: any) {
       setError(e.message || '加载失败')
@@ -247,7 +247,7 @@ export default function HistoryPage() {
           <>
             <div className="text-xs text-ink-faint mb-4">共 {total} 条记录</div>
             <div className="space-y-3">
-              {items.map((item, i) => (
+              {(items || []).map((item, i) => (
                 <div
                   key={item.id}
                   className="glass rounded-2xl overflow-hidden animate-fade-up"
@@ -360,7 +360,7 @@ export default function HistoryPage() {
               <>
                 <div className="text-xs text-ink-faint mb-4">共 {collabItems.length} 条协作记录</div>
                 <div className="space-y-3">
-                  {collabItems.map((item) => (
+                  {(collabItems || []).map((item) => (
                     <div
                       key={item.session_id}
                       className="bg-surface rounded-xl border border-border overflow-hidden transition-shadow hover:shadow-sm"
@@ -415,7 +415,7 @@ export default function HistoryPage() {
                           ) : (
                             <div className="space-y-4">
                               {/* 最终成果 */}
-                              {collabDetail.artifacts.filter(a => a.is_final).map(a => (
+                              {(collabDetail.artifacts || []).filter(a => a.is_final).map(a => (
                                 <div key={a.artifact_id} className="bg-surface rounded-lg border border-sage/30 p-3">
                                   <div className="flex items-center gap-2 mb-2">
                                     <Award className="w-3.5 h-3.5 text-sage" />
@@ -434,7 +434,7 @@ export default function HistoryPage() {
                                   <Layers className="w-3 h-3" /> 全部产物({collabDetail.artifacts.length})
                                 </div>
                                 <div className="space-y-2">
-                                  {collabDetail.artifacts.filter(a => !a.is_final).map(a => (
+                                  {(collabDetail.artifacts || []).filter(a => !a.is_final).map(a => (
                                     <div key={a.artifact_id} className="bg-surface rounded-md p-2.5 border border-border">
                                       <div className="flex items-center gap-2 mb-1">
                                         <span className="text-xs font-medium text-ink">{a.title}</span>

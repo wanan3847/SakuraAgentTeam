@@ -48,11 +48,11 @@ export function ProvidersPage() {
     setLoading(true)
     try {
       const [all, free] = await Promise.all([fetchProviders(), fetchFreeProviders()])
-      setProviders(all)
+      setProviders(all || [])
       setFreeProviders(free)
       if (token) {
         const mine = await fetchMyConfigs(token)
-        setMyConfigs(mine)
+        setMyConfigs(mine || [])
       }
     } finally {
       setLoading(false)
@@ -284,7 +284,7 @@ function BuiltinProvidersTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {providers.map((p) => (
+          {(providers || []).map((p) => (
             <ProviderCard
               key={p.id}
               provider={p}
@@ -490,11 +490,11 @@ function ProviderCard({
           </div>
 
           {/* 推荐模型 */}
-          {provider.models.length > 0 && (
+          {(provider.models || []).length > 0 && (
             <div>
               <p className="text-xs text-ink-faint font-mono mb-1.5">推荐模型</p>
               <div className="flex flex-wrap gap-1.5">
-                {provider.models.slice(0, 6).map((m) => (
+                {(provider.models || []).slice(0, 6).map((m) => (
                   <button
                     key={m}
                     onClick={() => setModel(m)}
@@ -905,7 +905,7 @@ function MyConfigsTab({
     )
   }
 
-  if (configs.length === 0) {
+  if ((configs || []).length === 0) {
     return (
       <div className="text-center py-20">
         <p className="text-ink-muted text-sm mb-2">还没有保存任何配置</p>
@@ -918,7 +918,7 @@ function MyConfigsTab({
 
   return (
     <div className="space-y-3">
-      {configs.map((c) => (
+      {(configs || []).map((c) => (
         <ConfigCard
           key={c.id}
           config={c}

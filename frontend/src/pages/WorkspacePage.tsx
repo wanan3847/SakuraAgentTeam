@@ -73,7 +73,7 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     fetchTeams().then((d) => {
-      setTeams(d)
+      setTeams(d || [])
       if (initialState?.teamId) {
         const t = d.find((t) => t.id === initialState.teamId)
         if (t) setActiveTeam(t)
@@ -573,7 +573,7 @@ export default function WorkspacePage() {
           <div className="absolute top-20 left-1/2 -translate-x-1/2 glass rounded-xl p-4 w-[90%] max-w-2xl max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-sm mb-3 px-2">选择团队</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {teams.map((t) => {
+              {(teams || []).map((t) => {
                 const m = MODE_LABELS[t.mode] || MODE_LABELS.group
                 const Icon = m.icon
                 return (
@@ -724,11 +724,11 @@ function GraphPanel({ snapshot }: { snapshot: GraphSnapshot }) {
         <GitBranch className="w-4 h-4 text-sakura-400" />
         <h3 className="font-semibold text-sm">任务状态图</h3>
         <span className="text-[10px] text-ink-faint ml-auto">
-          {snapshot.tasks.filter(t => t.state === 'done').length} / {snapshot.tasks.length} 已完成
+          {(snapshot.tasks || []).filter(t => t.state === 'done').length} / {(snapshot.tasks || []).length} 已完成
         </span>
       </div>
       <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1">
-        {snapshot.tasks.map((task) => {
+        {(snapshot.tasks || []).map((task) => {
           const color = TASK_STATE_COLORS[task.state] || '#A8A299'
           return (
             <div
@@ -777,7 +777,7 @@ function WhiteboardPanel({ data, onClose }: { data: WhiteboardData; onClose: () 
         </button>
       </div>
       <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-        {data.artifacts.map((a) => (
+        {(data.artifacts || []).map((a) => (
           <details key={a.id} className="bg-bg-subtle rounded-xl p-2.5">
             <summary className="cursor-pointer text-xs font-medium flex items-center gap-1.5">
               <FileText className="w-3 h-3" />
@@ -785,9 +785,9 @@ function WhiteboardPanel({ data, onClose }: { data: WhiteboardData; onClose: () 
               <span className="text-[9px] text-ink-faint">{a.type}</span>
             </summary>
             <p className="text-[10px] text-ink-soft mt-2 whitespace-pre-wrap leading-relaxed">{a.content}</p>
-            {a.tags.length > 0 && (
+            {(a.tags || []).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
-                {a.tags.map((t, i) => (
+                {(a.tags || []).map((t, i) => (
                   <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-hover text-ink-faint">
                     #{t}
                   </span>
@@ -835,7 +835,7 @@ function TracesPanel({ traces, expanded, setExpanded, onClose }: {
               </button>
               {isExpanded && (
                 <div className="px-3 pb-3 space-y-1.5">
-                  {t.steps.map((s) => {
+                  {(t.steps || []).map((s) => {
                     const icon = s.type === 'think' ? <MessageSquare className="w-3 h-3" /> : s.type === 'tool' ? <Wrench className="w-3 h-3" /> : s.type === 'observe' ? <Eye className="w-3 h-3" /> : <Upload className="w-3 h-3" />
                     return (
                       <div key={s.step} className="flex items-start gap-1.5 text-[10px]">

@@ -117,7 +117,7 @@ export default function TeamBuilderPage() {
               >
                 全部
               </button>
-              {categories.map((c) => (
+              {(categories || []).map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setActiveCat(c.id)}
@@ -131,7 +131,7 @@ export default function TeamBuilderPage() {
 
             {/* Agent 网格 */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-2">
-              {filtered.map((a) => {
+              {(filtered || []).map((a) => {
                 const isSelected = selected.has(a.id)
                 const color = CATEGORY_COLORS[a.category] || '#A8A299'
                 return (
@@ -212,7 +212,7 @@ export default function TeamBuilderPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {selectedAgents.map((a, i) => {
+                    {(selectedAgents || []).map((a, i) => {
                       const color = CATEGORY_COLORS[a.category] || '#A8A299'
                       return (
                         <div key={a.id} className="flex items-center gap-2 bg-bg-subtle rounded-md p-2 border border-border">
