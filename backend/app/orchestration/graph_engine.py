@@ -196,8 +196,31 @@ class GraphCollaborationEngine:
             )
 
         # ===== 5. Finalizer 生成最终交付 =====
+        # 关键修复:即使 synthesize 失败也要发 final_deliverable 事件
+        final_artifact = None
         try:
             final_artifact = await synthesize_final_artifact(state, self.llm)
+        except Exception as e:
+            logger.error(f"finalizer 异常,用兜底生成: {e}", exc_info=True)
+            # 兜底:拼接所有 artifact 作为最终成果
+            fallback_content = "# 最终成果\n\n> 整合器异常,以下为各任务产出的整合。\n\n"
+            for a in state.artifacts:
+                fallback_content += f"\n\n---\n\n## 【{a.agent_name}】{a.title}\n\n{a.content}\n"
+            fallback_content += "\n\n---\n\n## 风险与后续动作\n\n本次为兜底整合,建议重新发起协作或检查 LLM 配置。"
+            final_artifact = Artifact(
+                id=new_artifact_id(),
+                task_id="final",
+                agent_id="finalizer",
+                agent_name="最终整合者",
+                type="final_report",
+                title="最终成果",
+                content=fallback_content,
+                summary=fallback_content[:200],
+            )
+            state.set_final_artifact(final_artifact)
+
+        # 事件 yield 一定执行
+        try:
             yield GraphEvent(
                 type="artifact_created",
                 data={
@@ -212,12 +235,8 @@ class GraphCollaborationEngine:
                     "session_id": state.session_id,
                 },
             )
-        except Exception as e:
-            logger.error(f"finalizer 失败: {e}", exc_info=True)
-            yield GraphEvent(
-                type="error",
-                data={"message": f"最终交付生成失败: {e}"},
-            )
+        except Exception as yield_err:
+            logger.error(f"final_deliverable 事件发送失败: {yield_err}")
 
         # ===== 5.5 持久化到数据库(阶段 4) =====
         if user_id is not None:

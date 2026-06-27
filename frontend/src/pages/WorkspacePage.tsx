@@ -219,7 +219,7 @@ export default function WorkspacePage() {
         }
 
         else if (evt.type === 'final_deliverable') {
-          // 最终交付 — 突出显示
+          // 最终交付 — 突出显示 + 加入对话区作为最终成果消息
           const artifact = evt.data?.artifact
           if (artifact) {
             setFinalDeliverable(artifact)
@@ -228,6 +228,21 @@ export default function WorkspacePage() {
             setArtifacts((prev) => {
               if (prev.find((a) => a.id === artifact.id)) return prev
               return [...prev, artifact]
+            })
+            // 关键修复:把最终成果作为一条特殊消息加到对话区,用户能直接看到
+            setMessages((prev) => {
+              // 避免重复
+              if (prev.find((m) => m.id === artifact.id)) return prev
+              return [...prev, {
+                id: artifact.id,
+                role: 'assistant',
+                name: artifact.agent_name || '最终整合者',
+                content: artifact.content,
+                avatar: '🌸',
+                color: '#C97B8A',
+                final: true,
+                stage: 'final',
+              }]
             })
           }
           if (evt.data?.session_id) {
@@ -333,7 +348,25 @@ export default function WorkspacePage() {
   }
 
   const handleExport = (fmt: 'markdown' | 'json' | 'text') => {
-    exportChat(fmt, messages, currentTeamName)
+    // 把最终成果作为最后一条消息加进去,确保下载内容包含最终方案
+    // (如果对话区已包含最终成果消息则不重复追加)
+    const hasFinal = messages.some((m) => m.final)
+    const exportMessages = hasFinal ? messages : (() => {
+      const arr = [...messages]
+      if (finalDeliverable) {
+        arr.push({
+          id: finalDeliverable.id || 'final-deliverable',
+          role: 'assistant',
+          name: finalDeliverable.agent_name || '最终整合者',
+          content: finalDeliverable.content,
+          avatar: '🌸',
+          color: '#C97B8A',
+          final: true,
+        })
+      }
+      return arr
+    })()
+    exportChat(fmt, exportMessages, currentTeamName)
     setShowExport(false)
   }
 

@@ -320,7 +320,12 @@ async def export_chat(request: Request):
             lines.append(f"团队：{team_name}")
             lines.append("")
         for m in messages:
-            lines.append(f"【{m.get('name', m.get('role', '?'))}】")
+            if m.get("final"):
+                lines.append("=" * 40)
+                lines.append(f"【最终成果】{m.get('name', '最终整合者')}")
+                lines.append("=" * 40)
+            else:
+                lines.append(f"【{m.get('name', m.get('role', '?'))}】")
             lines.append(m.get("content", ""))
             lines.append("")
         return {"success": True, "content": "\n".join(lines), "filename": "agent_team_chat.txt"}
@@ -333,8 +338,15 @@ async def export_chat(request: Request):
     for m in messages:
         avatar = m.get("avatar", "")
         name = m.get("name", m.get("role", "?"))
-        lines.append(f"## {avatar} {name}")
-        lines.append("")
+        if m.get("final"):
+            lines.append("---")
+            lines.append(f"## 🌸 最终成果 — {name}")
+            lines.append("")
+            lines.append("> 以下为团队整合后的最终方案,可直接使用。")
+            lines.append("")
+        else:
+            lines.append(f"## {avatar} {name}")
+            lines.append("")
         lines.append(m.get("content", ""))
         lines.append("")
     return {"success": True, "content": "\n".join(lines), "filename": "agent_team_chat.md"}
@@ -470,49 +482,70 @@ async def _stream_chat(team: Crew, request: Request, user: User):
                     yield f"event: artifact_created\ndata: {json.dumps({'artifact': artifact.to_dict(), 'is_final': False}, ensure_ascii=False)}\n\n"
 
             # 所有 agent 完成后,调 finalizer 生成最终交付
+            # 关键修复:事件 yield 必须在 try 之外,确保前端一定收到 final_deliverable
             if agent_outputs:
+                final_art = None
                 try:
                     user_llm = build_llm_for_user(user.id)
                     final_art = await synthesize_final_artifact(collab_state, user_llm)
-                    # 广播最终 artifact
+                except Exception as fin_err:
+                    logger.warning(f"finalizer 异常,用兜底生成: {fin_err}")
+                    # 兜底:拼接所有 agent 输出作为最终成果,保证用户能拿到东西
+                    fallback_content = "# 最终成果\n\n> 整合器异常,以下为各 agent 关键产出的整合。\n\n"
+                    for o in agent_outputs:
+                        fallback_content += f"\n\n---\n\n## 【{o.get('agent_name', '')}】\n\n{o.get('content', '')}\n"
+                    fallback_content += "\n\n---\n\n## 风险与后续动作\n\n本次为兜底整合,建议重新发起协作或检查 LLM 配置。"
+                    final_art = CollabArtifact(
+                        id=new_artifact_id(),
+                        task_id="final",
+                        agent_id="finalizer",
+                        agent_name="最终整合者",
+                        type="final_report",
+                        title="最终成果",
+                        content=fallback_content,
+                        summary=fallback_content[:200],
+                    )
+                    collab_state.set_final_artifact(final_art)
+
+                # === 以下事件 yield 一定执行(不在 try 块内)===
+                try:
                     yield f"event: artifact_created\ndata: {json.dumps({'artifact': final_art.to_dict(), 'is_final': True}, ensure_ascii=False)}\n\n"
                     yield f"event: final_deliverable\ndata: {json.dumps({'artifact': final_art.to_dict(), 'session_id': collab_state.session_id}, ensure_ascii=False)}\n\n"
+                except Exception as yield_err:
+                    logger.error(f"final_deliverable 事件发送失败: {yield_err}")
 
-                    # 持久化(阶段 4)
-                    try:
-                        from app.collaboration.store import (
-                            save_artifact as _save_art,
-                            save_session as _save_sess,
-                        )
-                        _save_sess(
+                # 持久化(阶段 4)— 失败不影响结果
+                try:
+                    from app.collaboration.store import (
+                        save_artifact as _save_art,
+                        save_session as _save_sess,
+                    )
+                    _save_sess(
+                        session_id=collab_state.session_id,
+                        user_id=user.id,
+                        user_request=message,
+                        mode=team.mode,
+                        team_id=team.id,
+                        team_name=team.name,
+                        task_count=len(agent_outputs),
+                        artifact_count=len(collab_state.artifacts),
+                        final_artifact_id=collab_state.final_artifact_id,
+                    )
+                    for a in collab_state.artifacts:
+                        _save_art(
+                            artifact_id=a.id,
                             session_id=collab_state.session_id,
-                            user_id=user.id,
-                            user_request=message,
-                            mode=team.mode,
-                            team_id=team.id,
-                            team_name=team.name,
-                            task_count=len(agent_outputs),
-                            artifact_count=len(collab_state.artifacts),
-                            final_artifact_id=collab_state.final_artifact_id,
+                            task_id=a.task_id,
+                            agent_id=a.agent_id,
+                            agent_name=a.agent_name,
+                            type=a.type,
+                            title=a.title,
+                            content=a.content,
+                            summary=a.summary or "",
+                            is_final=(a.id == collab_state.final_artifact_id),
                         )
-                        for a in collab_state.artifacts:
-                            _save_art(
-                                artifact_id=a.id,
-                                session_id=collab_state.session_id,
-                                task_id=a.task_id,
-                                agent_id=a.agent_id,
-                                agent_name=a.agent_name,
-                                type=a.type,
-                                title=a.title,
-                                content=a.content,
-                                summary=a.summary or "",
-                                is_final=(a.id == collab_state.final_artifact_id),
-                            )
-                    except Exception as persist_err:
-                        logger.warning(f"chat 模式持久化失败: {persist_err}")
-
-                except Exception as fin_err:
-                    logger.warning(f"finalizer 失败(非致命): {fin_err}")
+                except Exception as persist_err:
+                    logger.warning(f"chat 模式持久化失败: {persist_err}")
 
         except Exception as exc:
             logger.exception("chat_stream_error", error=str(exc), user_id=user.id)
