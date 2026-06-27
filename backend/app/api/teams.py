@@ -53,6 +53,12 @@ from app.orchestration.agent_team import (
     list_agents,
     list_teams,
 )
+from app.orchestration.collaboration_state import (
+    COLLAB_SESSIONS,
+    create_session,
+    get_session,
+)
+from app.orchestration.graph_engine import GraphCollaborationEngine, get_graph_engine
 
 logger = get_logger(__name__)
 
@@ -195,6 +201,59 @@ def whiteboard_get(session_id: str):
     from app.orchestration.agent_team import whiteboard_get as _wb_get
     wb = _wb_get(session_id)
     return {"success": True, "session_id": session_id, "whiteboard": wb}
+
+
+# ============================================================
+# 协作状态(新)— Artifact / CollaborationState 查询接口
+# ============================================================
+
+@router.get("/collaboration/{session_id}/state")
+def collaboration_get_state(session_id: str):
+    """获取协作会话的完整状态(任务图 + 所有 artifact)。"""
+    state = get_session(session_id)
+    if not state:
+        return {"success": False, "error": "session not found", "session_id": session_id}
+    return {"success": True, "state": state.to_dict()}
+
+
+@router.get("/collaboration/{session_id}/artifacts")
+def collaboration_list_artifacts(session_id: str):
+    """列出某个协作会话的所有 artifact。"""
+    state = get_session(session_id)
+    if not state:
+        return {"success": False, "error": "session not found", "session_id": session_id}
+    return {
+        "success": True,
+        "session_id": session_id,
+        "artifacts": [a.to_dict() for a in state.artifacts],
+        "total": len(state.artifacts),
+    }
+
+
+@router.get("/collaboration/{session_id}/artifacts/{artifact_id}")
+def collaboration_get_artifact(session_id: str, artifact_id: str):
+    """获取单个 artifact 详情。"""
+    state = get_session(session_id)
+    if not state:
+        return {"success": False, "error": "session not found", "session_id": session_id}
+    artifact = state.get_artifact(artifact_id)
+    if not artifact:
+        return {"success": False, "error": "artifact not found", "artifact_id": artifact_id}
+    return {"success": True, "artifact": artifact.to_dict()}
+
+
+@router.get("/collaboration/{session_id}/final")
+def collaboration_get_final(session_id: str):
+    """获取最终交付物。"""
+    state = get_session(session_id)
+    if not state:
+        return {"success": False, "error": "session not found", "session_id": session_id}
+    if not state.final_artifact_id:
+        return {"success": False, "error": "final artifact not ready", "session_id": session_id}
+    artifact = state.get_artifact(state.final_artifact_id)
+    if not artifact:
+        return {"success": False, "error": "final artifact missing", "session_id": session_id}
+    return {"success": True, "artifact": artifact.to_dict()}
 
 
 # ============================================================
@@ -342,25 +401,44 @@ async def _stream_chat(team: Crew, request: Request, user: User):
 
 
 async def _stream_graph(team: Crew, request: Request, user: User):
-    """状态图模式（LangGraph 风格）流式 — 用登录用户自己的 LLM。"""
+    """状态图模式(LangGraph 风格)流式 — 用登录用户自己的 LLM。
+
+    新版改用 GraphCollaborationEngine,产出 artifact / final_deliverable 等新事件。
+    异常时 fallback 到老引擎。
+    """
     body = await request.json()
     message = (body.get("message") or "").strip()
     if not message:
         return {"success": False, "error": "message is required"}
 
-    # 任务定义（前端可以传，也可以由主管 LLM 自动生成）
-    tasks = body.get("tasks") or []  # [{id, name, description, agent_id, dependencies: [task_id]}]
+    tasks = body.get("tasks") or []
     manager_id = body.get("manager_id", team.manager_agent_id or team.agents[0].id)
 
-    engine = await get_engine_for_user_async(user.id)
+    # 用登录用户的 LLM key 构建新引擎
+    from app.orchestration.agent_team import build_llm_for_user
+    user_llm = build_llm_for_user(user.id)
+    graph_engine = get_graph_engine(llm=user_llm)
 
     async def event_stream():
         try:
-            async for evt in engine.run_graph(team, message, tasks, manager_id):
+            async for evt in graph_engine.run(
+                crew=team,
+                user_request=message,
+                tasks=tasks if tasks else None,
+                manager_id=manager_id,
+            ):
                 yield f"event: {evt.type}\ndata: {json.dumps(evt.data, ensure_ascii=False)}\n\n"
         except Exception as exc:
             logger.exception("graph_stream_error", error=str(exc), user_id=user.id)
             yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
+            # fallback 到老引擎
+            try:
+                engine = await get_engine_for_user_async(user.id)
+                async for evt in engine.run_graph(team, message, tasks, manager_id):
+                    yield f"event: {evt.type}\ndata: {json.dumps(evt.data, ensure_ascii=False)}\n\n"
+            except Exception as fallback_exc:
+                logger.exception("graph_fallback_error", error=str(fallback_exc))
+                yield f"event: error\ndata: {json.dumps({'message': f'fallback 也失败: {fallback_exc}'}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         event_stream(),

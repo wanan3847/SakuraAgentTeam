@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, User, Mail, Lock, Sparkles, CheckCircle2, Home, LayoutDashboard } from 'lucide-react'
+import { ArrowLeft, Loader2, User, Mail, Lock, CheckCircle2, Home, LayoutDashboard } from 'lucide-react'
 import SakuraPetals from '../components/SakuraPetals'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -217,15 +217,6 @@ export default function AuthPage() {
           </button>
         </form>
 
-        {/* 管理员提示 */}
-        <div className="mt-6 flex items-start gap-2 text-[11px] text-ink-faint bg-bg-subtle border border-border rounded-md p-3">
-          <Sparkles className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-ink-muted" />
-          <div className="leading-relaxed">
-            <div className="mb-1 text-ink-soft font-medium">🔑 预置管理员账号</div>
-            <div>账号：<span className="font-mono text-sakura-700">admin</span> · 密码：<span className="font-mono text-sakura-700">sakura2026</span></div>
-            <div className="mt-1">注册后即可使用所有功能。管理员通过环境变量预置，或由现有管理员在后台设置。</div>
-          </div>
-        </div>
       </div>
     </div>
   )

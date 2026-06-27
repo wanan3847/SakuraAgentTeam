@@ -9,8 +9,13 @@ import {
 import SakuraPetals from '../components/SakuraPetals'
 import {
   fetchTeams, streamTeamChat, exportChat, fetchWhiteboard,
+  fetchCollaborationState, fetchCollaborationArtifacts, fetchFinalDeliverable,
   TeamInfo, ChatMessage, AgentTraceData, GraphSnapshot, WhiteboardData, TeamMode,
+  CollabArtifact, CollaborationState,
 } from '../lib/teamApi'
+import {
+  Award, BookOpen, Layers,
+} from 'lucide-react'
 
 // 7 种模式（借鉴 CrewAI / AG2 / Anthropic / OpenAI Swarm / LangGraph / MetaGPT）
 const MODE_LABELS: Record<TeamMode, { name: string; icon: any; color: string }> = {
@@ -47,6 +52,13 @@ export default function WorkspacePage() {
   const [whiteboard, setWhiteboard] = useState<WhiteboardData | null>(null)
   const [traces, setTraces] = useState<Record<string, AgentTraceData>>({})  // agent_id -> trace
   const [handoffChain, setHandoffChain] = useState<string[]>([])
+
+  // 新:协作产物 / 最终交付 / 会话状态
+  const [collabSessionId, setCollabSessionId] = useState<string | null>(null)
+  const [artifacts, setArtifacts] = useState<CollabArtifact[]>([])
+  const [finalDeliverable, setFinalDeliverable] = useState<CollabArtifact | null>(null)
+  const [showFinalDeliverable, setShowFinalDeliverable] = useState(false)
+  const [showArtifacts, setShowArtifacts] = useState(false)
 
   // 面板显示
   const [showTeamPicker, setShowTeamPicker] = useState(false)
@@ -110,6 +122,11 @@ export default function WorkspacePage() {
     setTraces({})
     setHandoffChain([])
     setWhiteboard(null)
+    setCollabSessionId(null)
+    setArtifacts([])
+    setFinalDeliverable(null)
+    setShowFinalDeliverable(false)
+    setShowArtifacts(false)
 
     try {
       let currentAgentMsg: ChatMessage | null = null
@@ -134,6 +151,95 @@ export default function WorkspacePage() {
 
         else if (evt.type === 'graph_snapshot') {
           setGraphSnapshot(evt.data as GraphSnapshot)
+        }
+
+        // ===== 新:协作产物 / 最终交付事件 =====
+        else if (evt.type === 'task_plan_created') {
+          // 任务计划创建 — 记录 session_id
+          if (evt.data?.session_id) {
+            setCollabSessionId(evt.data.session_id)
+          }
+          // 同时更新 graphSnapshot(如果有 tasks)
+          if (evt.data?.tasks) {
+            setGraphSnapshot({
+              tasks: evt.data.tasks.map((t: any) => ({
+                id: t.id, name: t.name, description: t.description,
+                agent_id: t.agent_id, state: t.state,
+                dependencies: t.dependencies,
+                output_preview: t.expected_output,
+              })),
+              is_finished: false,
+            })
+          }
+        }
+
+        else if (evt.type === 'task_started') {
+          // 任务开始 — 更新 graph 任务状态
+          const d = evt.data
+          setGraphSnapshot((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              tasks: prev.tasks.map((t) =>
+                t.id === d.task_id ? { ...t, state: 'running' as const } : t
+              ),
+            }
+          })
+        }
+
+        else if (evt.type === 'task_completed') {
+          // 任务完成 — 更新 graph 任务状态
+          const d = evt.data
+          setGraphSnapshot((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              tasks: prev.tasks.map((t) =>
+                t.id === d.task_id ? { ...t, state: d.state as any } : t
+              ),
+            }
+          })
+        }
+
+        else if (evt.type === 'artifact_created') {
+          // 产物创建 — 加入 artifacts 列表
+          const artifact = evt.data?.artifact
+          if (artifact) {
+            setArtifacts((prev) => {
+              // 避免重复
+              if (prev.find((a) => a.id === artifact.id)) return prev
+              return [...prev, artifact]
+            })
+            // 如果是最终产物,设置 finalDeliverable
+            if (evt.data?.is_final) {
+              setFinalDeliverable(artifact)
+              setShowFinalDeliverable(true)
+            }
+          }
+        }
+
+        else if (evt.type === 'final_deliverable') {
+          // 最终交付 — 突出显示
+          const artifact = evt.data?.artifact
+          if (artifact) {
+            setFinalDeliverable(artifact)
+            setShowFinalDeliverable(true)
+            // 同时加入 artifacts 列表(避免重复)
+            setArtifacts((prev) => {
+              if (prev.find((a) => a.id === artifact.id)) return prev
+              return [...prev, artifact]
+            })
+          }
+          if (evt.data?.session_id) {
+            setCollabSessionId(evt.data.session_id)
+          }
+        }
+
+        else if (evt.type === 'chat_done') {
+          // 结束 — 记录 session_id
+          if (evt.data?.session_id) {
+            setCollabSessionId(evt.data.session_id)
+          }
         }
 
         else if (evt.type === 'graph_node_start' || evt.type === 'graph_node_failed' || evt.type === 'graph_checkpoint') {
@@ -307,6 +413,29 @@ export default function WorkspacePage() {
                     <GitBranch className="w-4 h-4" />
                   </button>
                 )}
+                {/* 产物按钮(新) */}
+                {artifacts.length > 0 && (
+                  <button
+                    onClick={() => setShowArtifacts(!showArtifacts)}
+                    className="w-9 h-9 flex items-center justify-center rounded-md glass hover:bg-surface-hover transition-colors relative"
+                    title="协作产物"
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span className="absolute -top-1 -right-1 text-[9px] w-4 h-4 rounded-full bg-clay text-white flex items-center justify-center">
+                      {artifacts.length}
+                    </span>
+                  </button>
+                )}
+                {/* 最终成果按钮(新) */}
+                {finalDeliverable && (
+                  <button
+                    onClick={() => setShowFinalDeliverable(!showFinalDeliverable)}
+                    className="w-9 h-9 flex items-center justify-center rounded-md bg-sage text-white hover:bg-sage-dark transition-colors"
+                    title="最终成果"
+                  >
+                    <Award className="w-4 h-4" />
+                  </button>
+                )}
                 <div className="relative">
                   <button onClick={() => setShowExport(!showExport)} className="w-9 h-9 flex items-center justify-center rounded-md glass hover:bg-surface-hover transition-colors">
                     <Download className="w-4 h-4" />
@@ -386,9 +515,15 @@ export default function WorkspacePage() {
           )}
         </main>
 
-        {/* 右侧：状态图 / 白板 / Trace 面板 */}
-        {(showGraphPanel && graphSnapshot) || showWhiteboard || showTraces ? (
+        {/* 右侧:状态图 / 白板 / Trace / 产物 / 最终成果 面板 */}
+        {(showGraphPanel && graphSnapshot) || showWhiteboard || showTraces || showArtifacts || showFinalDeliverable ? (
           <aside className="w-80 flex-shrink-0 hidden lg:block">
+            {showFinalDeliverable && finalDeliverable && (
+              <FinalDeliverablePanel artifact={finalDeliverable} onClose={() => setShowFinalDeliverable(false)} />
+            )}
+            {showArtifacts && (
+              <ArtifactsPanel artifacts={artifacts} onClose={() => setShowArtifacts(false)} />
+            )}
             {showGraphPanel && graphSnapshot && (
               <GraphPanel snapshot={graphSnapshot} />
             )}
@@ -710,6 +845,101 @@ function TracesPanel({ traces, expanded, setExpanded, onClose }: {
                       </div>
                     )
                   })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ===== 最终成果面板(新) =====
+
+function FinalDeliverablePanel({ artifact, onClose }: { artifact: CollabArtifact; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const onCopy = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(artifact.content).catch(() => {})
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }
+  return (
+    <div className="glass rounded-xl p-4 border-2 border-sage/30">
+      <div className="flex items-center gap-2 mb-3">
+        <Award className="w-4 h-4 text-sage" />
+        <h3 className="font-semibold text-sm">最终成果</h3>
+        <span className="text-[10px] text-sage font-mono ml-auto">FINAL</span>
+        <button onClick={onClose} aria-label="关闭" className="text-ink-faint hover:text-ink w-7 h-7 flex items-center justify-center rounded-md hover:bg-bg-subtle transition-colors">
+          <X className="w-3.5 h-3.5" strokeWidth={1.5} />
+        </button>
+      </div>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sage-soft text-sage font-mono">
+          {artifact.type}
+        </span>
+        <span className="text-[10px] text-ink-faint">由 {artifact.agent_name} 生成</span>
+        <button onClick={onCopy} className="text-[10px] text-ink-faint hover:text-ink ml-auto font-mono">
+          {copied ? '已复制' : '复制'}
+        </button>
+      </div>
+      <div className="bg-bg-subtle rounded-md p-3 max-h-[60vh] overflow-y-auto">
+        <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono text-ink-soft">
+{artifact.content}
+        </pre>
+      </div>
+      {artifact.summary && artifact.summary !== artifact.content.slice(0, 120) && (
+        <div className="mt-2 px-2 py-1.5 rounded-md bg-sage/5 border border-sage/15">
+          <p className="text-[10px] text-sage leading-relaxed">{artifact.summary}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== 产物列表面板(新) =====
+
+function ArtifactsPanel({ artifacts, onClose }: { artifacts: CollabArtifact[]; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  return (
+    <div className="glass rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Layers className="w-4 h-4 text-clay" />
+        <h3 className="font-semibold text-sm">协作产物</h3>
+        <span className="text-[10px] text-ink-faint ml-auto">{artifacts.length} 个</span>
+        <button onClick={onClose} aria-label="关闭" className="text-ink-faint hover:text-ink w-7 h-7 flex items-center justify-center rounded-md hover:bg-bg-subtle transition-colors">
+          <X className="w-3.5 h-3.5" strokeWidth={1.5} />
+        </button>
+      </div>
+      <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+        {artifacts.map((a) => {
+          const isExpanded = expanded === a.id
+          const isFinal = a.type === 'final_report'
+          return (
+            <div
+              key={a.id}
+              className={`bg-bg-subtle rounded-xl overflow-hidden ${isFinal ? 'border border-sage/30' : ''}`}
+            >
+              <button
+                onClick={() => setExpanded(isExpanded ? null : a.id)}
+                className="w-full p-2.5 text-left flex items-center gap-2"
+              >
+                {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                <span className="text-xs font-medium flex-1">{a.title}</span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                  isFinal ? 'bg-sage-soft text-sage' : 'bg-bg-subtle text-ink-soft'
+                }`}>
+                  {a.type}
+                </span>
+              </button>
+              {isExpanded && (
+                <div className="px-3 pb-3">
+                  <p className="text-[10px] text-ink-faint mb-2">由 {a.agent_name} 生成</p>
+                  <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono text-ink-soft max-h-80 overflow-y-auto">
+{a.content}
+                  </pre>
                 </div>
               )}
             </div>

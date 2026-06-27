@@ -4,7 +4,7 @@ import { Sparkles, Users, Workflow, Bot, ArrowRight, ChevronDown, LayoutDashboar
 import SakuraPetals from '../components/SakuraPetals'
 import CountUp from '../components/CountUp'
 import { useAuth } from '../contexts/AuthContext'
-import { fetchTeams, TeamInfo } from '../lib/teamApi'
+import { fetchPublicStats, fetchTeams, PublicMetric, TeamInfo } from '../lib/teamApi'
 import { openBugReport } from '../lib/feedback'
 
 const FEATURES = [
@@ -18,50 +18,29 @@ const FEATURES = [
  * 实时指标（仿 Linear / Vercel / opendesign dashboard 风格）
  * 数字从 0 滚动到目标，附 +Δ% 增量徽章
  * ============================================================ */
-const METRICS = [
+const METRIC_META = [
   {
-    value: 12510,
-    delta: 2.4,
-    suffix: '',
     label: '累计完成任务',
-    sub: '本季度',
     icon: TrendingUp,
     accent: '#C97B8A',
   },
   {
-    value: 5,
-    delta: 0,
-    suffix: '',
     label: '在线智能体',
-    sub: '持续运行中',
     icon: Bot,
     accent: '#6B8E6B',
-    live: true,
   },
   {
-    value: 38540,
-    delta: 18,
-    suffix: '',
     label: '累计节省工时',
-    sub: '相比人工',
     icon: Sparkles,
     accent: '#C4955E',
   },
   {
-    value: 100,
-    delta: 38,
-    suffix: '+',
     label: '社区贡献者',
-    sub: '本月新增',
     icon: Users,
     accent: '#8C4A57',
   },
   {
-    value: 254,
-    delta: 12,
-    suffix: '+',
     label: 'LLM 供应商',
-    sub: '开箱即用',
     icon: Server,
     accent: '#6B655C',
   },
@@ -76,12 +55,14 @@ export default function HomePage() {
   const { user, isAuthenticated, isAdmin, logout } = useAuth()
   const nav = useNavigate()
   const [teams, setTeams] = useState<TeamInfo[]>([])
+  const [metrics, setMetrics] = useState<PublicMetric[]>([])
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchTeams().then(setTeams).catch(() => {})
+    fetchPublicStats().then(setMetrics).catch(() => setMetrics([]))
     const onScroll = () => setScrolled(window.scrollY > 30)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
@@ -224,7 +205,8 @@ export default function HomePage() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {METRICS.map((m, i) => {
+            {metrics.map((m, i) => {
+              const meta = METRIC_META.find((item) => item.label === m.label) || METRIC_META[0]
               const isPositive = m.delta > 0
               return (
                 <div
@@ -266,7 +248,7 @@ export default function HomePage() {
                   {/* 右侧强调色细线 */}
                   <div
                     className="absolute top-0 left-0 bottom-0 w-px"
-                    style={{ backgroundColor: m.accent + '40' }}
+                    style={{ backgroundColor: meta.accent + '40' }}
                   />
                 </div>
               )

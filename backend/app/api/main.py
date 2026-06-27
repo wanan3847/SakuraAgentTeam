@@ -36,6 +36,7 @@ app = FastAPI(
 )
 
 from app.api.connectors import router as connectors_router  # noqa: E402, F401
+from app.api.public_stats import router as public_stats_router  # noqa: E402
 from app.api.routes import router as api_router  # noqa: E402
 from app.api.teams import router as teams_router  # noqa: E402
 from app.auth.routes import router as auth_router  # noqa: E402
@@ -55,6 +56,7 @@ app.add_middleware(
 
 app.include_router(api_router)
 app.include_router(connectors_router)
+app.include_router(public_stats_router)
 app.include_router(teams_router)
 app.include_router(auth_router)
 app.include_router(history_router)

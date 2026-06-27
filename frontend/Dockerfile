@@ -1,5 +1,5 @@
 # Frontend production build + nginx serve
-FROM node:20-alpine AS build
+FROM docker.m.daocloud.io/library/node:20-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 # ---- Runtime ----
-FROM nginx:1.27-alpine
+FROM docker.m.daocloud.io/library/nginx:1.27-alpine
 
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html

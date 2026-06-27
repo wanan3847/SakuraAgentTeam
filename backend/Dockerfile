@@ -1,14 +1,13 @@
 # Backend runtime for SakuraAgentTeam
-FROM python:3.11-slim
+FROM docker.m.daocloud.io/library/python:3.11-slim
 
 WORKDIR /app
 
-# 系统依赖（chromadb onnxruntime 需要）
+# GitPython 和项目生成流程需要容器内有 git 可执行文件。
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Python 依赖（分两步以利用 Docker 缓存）
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
